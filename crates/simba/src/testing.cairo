@@ -1,4 +1,4 @@
-//! Shared helpers for gas micro-benchmarks.
+//! Test-only helpers for the gas benchmarks (AGENTS.md).
 //!
 //! Sierra gas is deterministic, so a single call per test is enough: the figure reported by
 //! snforge for a `bench_<group>__<variant>` test is compared against the `bench_<group>__baseline`
@@ -11,23 +11,4 @@
 #[inline(never)]
 pub fn black_box<T>(value: T) -> T {
     value
-}
-
-#[cfg(test)]
-mod tests {
-    use super::black_box;
-
-    #[test]
-    #[inline(never)]
-    fn bench_testing__baseline() {
-        let a: u64 = black_box(1);
-        assert!(a == 1);
-    }
-
-    #[test]
-    #[inline(never)]
-    fn bench_testing__add_u64() {
-        let a: u64 = black_box(1);
-        assert!(a + a == 2);
-    }
 }

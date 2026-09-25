@@ -1,8 +1,0 @@
-{
-  "simba_testing::tests": {
-    "testing": {
-      "add_u64": 15910,
-      "baseline": 15540
-    }
-  }
-}

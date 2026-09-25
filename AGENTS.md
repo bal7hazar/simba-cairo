@@ -22,7 +22,7 @@ step is proven, so gas is a first-class requirement, on par with correctness.
   numeric change, and so does `simba` when it follows.
 - **Zero cost is measured.** Every delegating method keeps a `bench_real_<op>__generic` equal to the
   direct `fixed` call (`bench_<group>__<variant>`, `#[inline(never)]`, inputs through
-  `simba_testing::black_box`, one `baseline` per group). `gas/*.json` is compared exactly in CI.
+  `crate::testing::black_box`, one `baseline` per group). `gas/*.json` is compared exactly in CI.
 - Pure library: no `starknet` dependency, no storage, no proc macros.
 
 ## Definition of done
