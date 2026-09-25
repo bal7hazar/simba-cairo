@@ -54,12 +54,15 @@
       "add": 16980,
       "atan2": 46270,
       "baseline": 16340,
+      "cosh": 44740,
       "div": 19640,
       "inv_norm2": 20680,
       "mul": 17920,
       "recip": 19160,
       "sin_cos": 47840,
-      "sqrt": 18160
+      "sinh": 46180,
+      "sqrt": 18160,
+      "tanh": 47660
     },
     "real_shared_div2": {
       "alt_per_element_div": 23870,

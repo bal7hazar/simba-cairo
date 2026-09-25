@@ -19,7 +19,8 @@
 //!   quotients against `fixed`'s prepared divisor directly: the break-even is 3 quotients.
 //!
 //! Plus the scalar headline figures of `docs/BENCHMARK.md` section 6 (`add`, `mul`, `div`,
-//! `sqrt`, `sin_cos`, `atan2`) on `fixed::Fixed` through `Real` / `Transcendental`.
+//! `sqrt`, `sin_cos`, `atan2`, `sinh`, `cosh`, `tanh`) on `fixed::Fixed` through `Real` /
+//! `Transcendental`.
 
 use fixed::Fixed;
 use fixed::wide::{
@@ -554,6 +555,30 @@ fn bench_real_scalar__atan2() {
     let (a, b) = (black_box(fx(P)), black_box(fx(Q)));
     let e = black_box(fx(0));
     assert!(Transcendental::atan2(a, b) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_scalar__sinh() {
+    let (a, _b) = (black_box(fx(ANGLE)), black_box(fx(Q)));
+    let e = black_box(fx(0));
+    assert!(Transcendental::sinh(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_scalar__cosh() {
+    let (a, _b) = (black_box(fx(ANGLE)), black_box(fx(Q)));
+    let e = black_box(fx(0));
+    assert!(Transcendental::cosh(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_scalar__tanh() {
+    let (a, _b) = (black_box(fx(ANGLE)), black_box(fx(Q)));
+    let e = black_box(fx(0));
+    assert!(Transcendental::tanh(a) != e);
 }
 
 // --- a divisor shared by n quotients: per-element `Real::div` vs `Real::divisor` + `div_by` ---

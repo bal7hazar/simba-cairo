@@ -3,13 +3,13 @@ version = 1
 
 [[package]]
 name = "fixed"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:2f5867291f4bc0660ee113c1cb5e3edac65515dc4fb8618283d26b30bd13a021"
+checksum = "sha256:a8f7ec541b8cc85894688ae9008cddb87cccc55a024b04b35f7fd3716d715064"
 
 [[package]]
 name = "simba"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "fixed",
  "snforge_std",
