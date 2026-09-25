@@ -1,25 +1,5 @@
 [workspace]
-members = [
-    "crates/simba",
-    "crates/nalgebra",
-    "crates/testing",
-    "crates/shapes_tests_core",
-    "crates/shapes_tests_norms",
-    "crates/shapes_tests_componentwise",
-    "crates/shapes_tests_construction",
-    "crates/shapes_tests_structure",
-    "crates/shapes_tests_functional",
-    "crates/shapes_tests_edition",
-    "crates/shapes_tests_inplace",
-    "crates/tests_utils",
-    "crates/tests_base",
-    "crates/tests_geometry",
-    "crates/tests_geometry_ext",
-    "crates/tests_geometry_poses",
-    "crates/tests_geometry_scale",
-    "crates/tests_geometry_dual",
-    "crates/tests_linalg",
-]
+members = ["crates/simba", "crates/testing"]
 
 [workspace.package]
 version = "0.1.0"
@@ -27,8 +7,8 @@ edition = "2024_07"
 cairo-version = "2.19.4"
 authors = ["bal7hazar"]
 license = "MIT"
-repository = "https://github.com/bal7hazar/nalgebra.cairo"
-keywords = ["math", "linear-algebra", "fixed-point", "physics", "gamedev"]
+repository = "https://github.com/bal7hazar/simba-cairo"
+keywords = ["math", "scalar", "fixed-point", "linear-algebra", "gamedev"]
 
 [workspace.dependencies]
 snforge_std = "0.61.0"

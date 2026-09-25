@@ -1,56 +1,32 @@
-# nalgebra.cairo
+# simba-cairo
 
-Linear algebra for **provable game physics**: a Cairo port of the Rust
-[nalgebra](https://nalgebra.rs) crate on glam.cairo's Q32.32 fixed point, designed gas-first.
+Scalar traits for provable linear algebra in Cairo: the counterpart of Dimforge's
+[simba](https://github.com/dimforge/simba).
 
-Part of a stack porting reputable Rust crates to Cairo — with
-[glam.cairo](https://github.com/bal7hazar/glam.cairo) and
-[rapier.cairo](https://github.com/bal7hazar/rapier.cairo) — towards games whose whole physics
-is provable.
+In Rust, `simba` is a trait layer (`RealField`, `ComplexField`) implemented for the primitive
+`f32` / `f64`; nalgebra is generic over `T: RealField`. Here the primitive is the Q32.32
+[`fixed::Fixed`](https://github.com/bal7hazar/fixed-cairo) and `simba` implements the traits for
+it; [nalgebra-cairo](https://github.com/bal7hazar/nalgebra-cairo) is generic over `T: Real`.
 
-> Status: M1-M4 and M7 complete (static 2/3/4/6 types, geometry, small decompositions, on the
-> stack's single scalar `fixed`) with ~3,100 tests; see the [plan](docs/PLAN.md) for what remains.
+Part of a stack porting reputable Rust crates to Cairo for provable game physics:
+`fixed -> simba -> nalgebra -> rapier` and `fixed -> glam -> glamx -> rapier`.
 
-## Packages
+## Package
 
 | Package | Content |
 |---|---|
-| [`simba`](crates/simba) | Scalar traits (`Real`, `Transcendental`: fused kernels, wide accumulator, transcendentals) implemented for glam.cairo's Q32.32 [`fixed::Fixed`](https://github.com/bal7hazar/glam.cairo) 0.3.0, the scalar shared by the whole stack |
-| [`nalgebra`](crates/nalgebra) | `base` (vectors, matrices), `geometry` (rotations, isometries), `linalg` (decompositions), generic over `Real` |
+| [`simba`](crates/simba) | `Real` (constants, helpers, fused kernels `sum_prod*` / `diff_prod` / `norm*`, the `fixed::wide::Acc` accumulator, prepared divisors `div3..div16`) and `Transcendental`, implemented for `fixed::Fixed` by delegation only (`#[inline(always)]`, zero-cost: no arithmetic of its own) |
 
-## Why it is fast
+```toml
+[dependencies]
+simba = "0.1.0"
+fixed = "0.3.0"
+```
 
-Measured on Cairo 2.19.4 ([full synthesis](docs/BENCHMARK.md)):
-
-| | existing Cairo libraries | nalgebra.cairo kernels |
-|---|---:|---:|
-| fixed-point add | 4,050 gas | 640 |
-| dot3 | 15,450 - 37,820 | 1,980 |
-| 3x3 inverse | 1,076,420 | 88,360 |
-| sin_cos (pair) | 30,320 - 130,360 (`sin` alone) | 31,500 (`fixed::trig`) |
-
-No loops, no dynamic containers in static types, products accumulated unscaled and rescaled once,
-range checks deferred to a single downcast per kernel. Every function ships with gas benchmarks,
-and CI fails on any unreviewed gas change.
-
-## Documentation
-
-- [Benchmark synthesis](docs/BENCHMARK.md) — what was measured and learned
-- [Design decisions](docs/DESIGN.md)
-- [Orchestration strategy](docs/ORCHESTRATOR.md) — how work is split between sub-agents
-- [Execution plan](docs/PLAN.md)
-- [Research reports](docs/research) — nalgebra, alexandria, starknet-agentic, origami, cubit, orion
-- [Design-time benchmarks](benchmarks) — ~2,100 reproducible gas measurements
+The numeric specification (rounding, overflow, panic messages `'Fixed: ...'`) is `fixed`'s. See
+[docs/DESIGN.md](docs/DESIGN.md).
 
 ## Development
 
-```bash
-asdf install            # scarb 2.19.4, starknet-foundry 0.61.0
-./scripts/check.sh      # fmt, lint, build, tests, gas snapshot
-```
-
-See [AGENTS.md](AGENTS.md) for the contribution rules (they apply to humans too).
-
-## License
-
-MIT
+`./scripts/check.sh` (fmt, lint, build, tests, gas snapshot; `--update` refreshes `gas/`).
+Toolchain pinned in `.tool-versions` (scarb 2.19.4, starknet-foundry 0.61.0).

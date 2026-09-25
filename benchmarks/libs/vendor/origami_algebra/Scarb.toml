@@ -1,9 +1,0 @@
-# Vendored copy of https://github.com/dojoengine/origami (crates/algebra) @ 1ddafcb8c33fe9697c4a44e0557967026d4eeba8 (MIT).
-# See NOTICE for the list of local patches.
-[package]
-name = "origami_algebra"
-version = "1.1.2"
-edition = "2024_07"
-
-[dependencies]
-cubit = { path = "../cubit" }

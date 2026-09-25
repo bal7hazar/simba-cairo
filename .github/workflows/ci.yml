@@ -18,122 +18,16 @@ concurrency:
 
 jobs:
   library:
-    name: Library (${{ matrix.name }})
+    name: Library (simba)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # `filters`: snforge test filters run one after the other in the same job (a filter's cost is
-        # proportional to the tests it selects; `--partition` would compile the whole package).
-        include:
-          - { name: simba, package: simba, filters: "simba" }
-          - { name: nalgebra_testing, package: nalgebra_testing, filters: "nalgebra_testing" }
-          # `nalgebra`: only the tests of crate-internal items (and the integration tests); the
-          # public-API tests live in the test-only packages `nalgebra_tests_*` (WP 8.1c).
-          - { name: nalgebra, package: nalgebra, filters: "nalgebra" }
-          - { name: "tests_base vectors", package: nalgebra_tests_base, filters: "nalgebra_tests_base::vector" }
-          - { name: "tests_base matrices", package: nalgebra_tests_base, filters: "nalgebra_tests_base::matrix nalgebra_tests_base::point nalgebra_tests_base::unit" }
-          - { name: "tests_geometry quaternions", package: nalgebra_tests_geometry, filters: "nalgebra_tests_geometry::quaternion nalgebra_tests_geometry::unit_quaternion" }
-          - { name: "tests_geometry poses", package: nalgebra_tests_geometry, filters: "nalgebra_tests_geometry::isometry nalgebra_tests_geometry::rotation nalgebra_tests_geometry::similarity nalgebra_tests_geometry::translation nalgebra_tests_geometry::unit_complex" }
-          - { name: tests_geometry_ext, package: nalgebra_tests_geometry_ext, filters: "nalgebra_tests_geometry_ext" }
-          - { name: tests_geometry_poses, package: nalgebra_tests_geometry_poses, filters: "nalgebra_tests_geometry_poses" }
-          - { name: tests_geometry_scale, package: nalgebra_tests_geometry_scale, filters: "nalgebra_tests_geometry_scale" }
-          - { name: tests_geometry_dual, package: nalgebra_tests_geometry_dual, filters: "nalgebra_tests_geometry_dual" }
-          - { name: tests_linalg, package: nalgebra_tests_linalg, filters: "nalgebra_tests_linalg" }
-          - { name: "shapes core", package: nalgebra_shapes_tests_core, filters: "nalgebra_shapes_tests_core" }
-          - { name: "shapes norms", package: nalgebra_shapes_tests_norms, filters: "nalgebra_shapes_tests_norms" }
-          - { name: "shapes componentwise", package: nalgebra_shapes_tests_componentwise, filters: "nalgebra_shapes_tests_componentwise" }
-          - { name: "shapes construction", package: nalgebra_shapes_tests_construction, filters: "nalgebra_shapes_tests_construction" }
-          - { name: "shapes structure", package: nalgebra_shapes_tests_structure, filters: "nalgebra_shapes_tests_structure" }
-          - { name: "shapes functional", package: nalgebra_shapes_tests_functional, filters: "nalgebra_shapes_tests_functional" }
-          - { name: "shapes edition", package: nalgebra_shapes_tests_edition, filters: "nalgebra_shapes_tests_edition" }
-          - { name: "shapes inplace", package: nalgebra_shapes_tests_inplace, filters: "nalgebra_shapes_tests_inplace" }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: software-mansion/setup-scarb@2a96b748888e3329ee44ac9ac073d930e692b3cd # v1.6.2
       - uses: foundry-rs/setup-snfoundry@16e23ddd0e2845f38727c92f4b913a7b728cda9e # v6.0.0
-      - name: Format, lint, build, generated-code and API parity freshness
+      - name: Format, lint, build
         run: |
           scarb fmt --check
-          python3 scripts/api_parity.py --check
-          python3 tools/shapegen/shapegen.py --check
           scarb lint --deny-warnings
           scarb build
-      - name: Test the shard and check the benchmarks it ran against the snapshot
-        run: |
-          : > snforge.out
-          for filter in ${{ matrix.filters }}; do
-            snforge test -p "${{ matrix.package }}" "$filter" | tee -a snforge.out >&2
-          done
-          python3 scripts/gas_report.py --check gas/ --partial < snforge.out
-          grep -E "^\[PASS\].*::bench_" snforge.out > bench.out || true
-          echo "artifact=bench-${{ strategy.job-index }}" >> "$GITHUB_ENV"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ${{ env.artifact }}
-          path: bench.out
-          if-no-files-found: error
-          retention-days: 1
-
-  gas:
-    name: Gas snapshot
-    needs: library
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: bench-*
-          path: bench
-      - name: Every benchmark of every shard against the full snapshot (catches removed benchmarks)
-        run: cat bench/*/bench.out | python3 scripts/gas_report.py --check gas/
-
-  benchmarks:
-    name: Design benchmarks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        id: changes
-        with:
-          filters: |
-            benchmarks:
-              - 'benchmarks/**'
-              - 'scripts/gas_report.py'
-              - '.tool-versions'
-      - uses: software-mansion/setup-scarb@2a96b748888e3329ee44ac9ac073d930e692b3cd # v1.6.2
-        if: steps.changes.outputs.benchmarks == 'true'
-      - uses: foundry-rs/setup-snfoundry@16e23ddd0e2845f38727c92f4b913a7b728cda9e # v6.0.0
-        if: steps.changes.outputs.benchmarks == 'true'
-      - name: Workspace benchmarks
-        if: steps.changes.outputs.benchmarks == 'true'
-        working-directory: benchmarks
-        run: |
-          scarb fmt --check
-          snforge test --workspace | python3 scripts/gas_report.py --check gas/
-      - name: Third-party library benchmarks
-        if: steps.changes.outputs.benchmarks == 'true'
-        working-directory: benchmarks/libs
-        run: |
-          scarb fmt --check
-          snforge test | python3 ../scripts/gas_report.py --check gas/
-
-  oracle:
-    name: Oracle (golden vectors)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        id: changes
-        with:
-          filters: |
-            oracle:
-              - 'tools/oracle/**'
-      - name: Format, lint, test and check that committed vectors are up to date
-        if: steps.changes.outputs.oracle == 'true'
-        working-directory: tools/oracle
-        run: |
-          cargo fmt --check
-          cargo clippy --all-targets -- -D warnings
-          cargo test
-          cargo run --release -- check
+      - name: Test and check the gas snapshot
+        run: snforge test --workspace | tee /dev/stderr | python3 scripts/gas_report.py --check gas/

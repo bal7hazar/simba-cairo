@@ -25,7 +25,7 @@ use fixed::Fixed;
 use fixed::wide::{
     self, AccTrait, NormTrait, RecipNearestTrait, RecipTrait, WideAdd, WideSqrt, wide_mul,
 };
-use nalgebra_testing::black_box;
+use simba_testing::black_box;
 use crate::scalar::{Real, Transcendental};
 
 // 1.5, -2.25, 3.75 and -4.5, 0.25, 2 as raw Q32.32 (dot = 0.1875), plus two inexact operands.

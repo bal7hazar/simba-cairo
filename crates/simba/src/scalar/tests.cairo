@@ -7,7 +7,7 @@ use fixed::exp::ExpTrait;
 use fixed::trig::TrigTrait;
 use fixed::wide::{self, AccTrait};
 use fixed::{Fixed, FixedTrait};
-use nalgebra_testing::black_box;
+use simba_testing::black_box;
 use super::{Real, Transcendental};
 
 fn fx(raw: i64) -> Fixed {

@@ -1,9 +1,0 @@
-# Vendored copy of https://github.com/influenceth/cubit @ 8007a3064762c68bd3ab67bdbb2e1229d5482fb0 (MIT).
-# See NOTICE for the list of local patches.
-[package]
-name = "cubit"
-version = "1.4.0"
-edition = "2023_10"
-
-[dependencies]
-starknet = "2.19.4"

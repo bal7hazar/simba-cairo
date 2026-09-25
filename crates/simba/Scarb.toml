@@ -1,6 +1,6 @@
 [package]
 name = "simba"
-description = "Scalar traits for provable linear algebra, implemented for glam.cairo's Q32.32 `fixed::Fixed`."
+description = "Scalar traits (`Real`, `Transcendental`) implemented for the Q32.32 `fixed::Fixed` of fixed-cairo: the Cairo counterpart of Dimforge's simba."
 version.workspace = true
 edition.workspace = true
 cairo-version.workspace = true
@@ -15,7 +15,7 @@ fixed = "0.3.0"
 [dev-dependencies]
 snforge_std.workspace = true
 assert_macros.workspace = true
-nalgebra_testing = { path = "../testing" }
+simba_testing = { path = "../testing" }
 
 [tool]
 fmt.workspace = true
