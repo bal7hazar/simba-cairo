@@ -2,6 +2,14 @@
 
 Numeric results are part of the API: any change of a result is a MINOR bump (pre-1.0).
 
+## 0.2.0 (2026-09-25)
+
+- `fixed = "0.4.0"` (was 0.3.0). Breaking under pre-1.0 caret resolution: `fixed::Fixed` is
+  re-exported and every trait is typed on it, so consumers must pin `fixed` 0.4 as well. No
+  existing result changes (`fixed` 0.4.0 is a pure addition).
+- `Transcendental::{sinh, cosh, tanh, sinhc, coshc}` (simba-rs `ComplexField` names), delegating
+  to `fixed::exp::ExpTrait` (within 1.5 ulp; `sinhc(0) = coshc(0) = 1` like simba-rs).
+
 ## 0.1.0 (2026-09-25)
 
 - First release from this repository. `simba` was developed inside nalgebra-cairo (history kept:

@@ -213,6 +213,20 @@ fn test_transcendental_forwards_to_fixed() {
     assert!(Transcendental::atan(a) == TrigTrait::atan(a));
     assert!(Transcendental::atan2(a, b) == TrigTrait::atan2(a, b));
     assert!(Transcendental::exp(a) == ExpTrait::exp(a) && Transcendental::ln(b) == ExpTrait::ln(b));
+    assert!(
+        Transcendental::sinh(a) == ExpTrait::sinh(a)
+            && Transcendental::cosh(a) == ExpTrait::cosh(a)
+            && Transcendental::tanh(a) == ExpTrait::tanh(a),
+    );
+    assert!(
+        Transcendental::sinhc(a) == ExpTrait::sinhc(a)
+            && Transcendental::coshc(b) == ExpTrait::coshc(b),
+    );
+    assert!(
+        Transcendental::sinhc(Real::<Fixed>::zero()) == Real::one()
+            && Transcendental::coshc(Real::<Fixed>::zero()) == Real::one()
+            && Transcendental::cosh(Real::<Fixed>::zero()) == Real::one(),
+    );
     let quarter_turn = Real::<Fixed>::frac_pi_2();
     assert!(
         Transcendental::sin(quarter_turn) == Real::one()

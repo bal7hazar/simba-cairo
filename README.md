@@ -19,8 +19,8 @@ Part of a stack porting reputable Rust crates to Cairo for provable game physics
 
 ```toml
 [dependencies]
-simba = "0.1.0"
-fixed = "0.3.0"
+simba = "0.2.0"
+fixed = "0.4.0"
 ```
 
 The numeric specification (rounding, overflow, panic messages `'Fixed: ...'`) is `fixed`'s. See

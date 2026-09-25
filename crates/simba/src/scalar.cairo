@@ -253,6 +253,16 @@ pub trait Transcendental<T> {
     fn exp(self: T) -> T;
     /// Natural logarithm. Panics on a non-positive input.
     fn ln(self: T) -> T;
+    /// Hyperbolic sine (simba-rs `ComplexField::sinh`).
+    fn sinh(self: T) -> T;
+    /// Hyperbolic cosine (simba-rs `ComplexField::cosh`).
+    fn cosh(self: T) -> T;
+    /// Hyperbolic tangent (simba-rs `ComplexField::tanh`).
+    fn tanh(self: T) -> T;
+    /// Cardinal hyperbolic sine `sinh(x) / x`, `1` at zero (simba-rs `ComplexField::sinhc`).
+    fn sinhc(self: T) -> T;
+    /// `cosh(x) / x`, `1` at zero like simba-rs `ComplexField::coshc`.
+    fn coshc(self: T) -> T;
 }
 
 /// `Transcendental` for `fixed::Fixed`: `#[inline(always)]` forwards to `fixed::trig::TrigTrait`
@@ -297,6 +307,26 @@ pub impl FixedTranscendental of Transcendental<Fixed> {
     #[inline(always)]
     fn ln(self: Fixed) -> Fixed {
         ExpTrait::ln(self)
+    }
+    #[inline(always)]
+    fn sinh(self: Fixed) -> Fixed {
+        ExpTrait::sinh(self)
+    }
+    #[inline(always)]
+    fn cosh(self: Fixed) -> Fixed {
+        ExpTrait::cosh(self)
+    }
+    #[inline(always)]
+    fn tanh(self: Fixed) -> Fixed {
+        ExpTrait::tanh(self)
+    }
+    #[inline(always)]
+    fn sinhc(self: Fixed) -> Fixed {
+        ExpTrait::sinhc(self)
+    }
+    #[inline(always)]
+    fn coshc(self: Fixed) -> Fixed {
+        ExpTrait::coshc(self)
     }
 }
 
