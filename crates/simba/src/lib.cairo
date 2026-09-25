@@ -14,6 +14,8 @@
 #[cfg(test)]
 mod benches;
 pub mod scalar;
+#[cfg(test)]
+mod testing;
 
 /// `use simba::prelude::*;`: the scalar `fixed::Fixed`, its accumulator (`Real::Wide`) and the
 /// scalar traits with their impls (method syntax). Operator impls need no import: they live in

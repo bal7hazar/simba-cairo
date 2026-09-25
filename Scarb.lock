@@ -12,14 +12,6 @@ name = "simba"
 version = "0.1.0"
 dependencies = [
  "fixed",
- "simba_testing",
- "snforge_std",
-]
-
-[[package]]
-name = "simba_testing"
-version = "0.1.0"
-dependencies = [
  "snforge_std",
 ]
 

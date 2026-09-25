@@ -2,7 +2,7 @@
 
 Numeric results are part of the API: any change of a result is a MINOR bump (pre-1.0).
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-09-25)
 
 - First release from this repository. `simba` was developed inside nalgebra-cairo (history kept:
   `git log --follow crates/simba`) and split out on 2026-09-25 to mirror the Rust layout
