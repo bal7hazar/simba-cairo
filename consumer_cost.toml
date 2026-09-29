@@ -1,0 +1,16 @@
+# Gates of scripts/consumer_cost.py (see the docstring at the top of that script; the script is
+# copied unchanged from nalgebra-cairo). The values are the defaults of the package granularity
+# rule: a published crate has at most 40,000 library lines, an empty consumer of it adds at most
+# 5 s / 1 GB to the no-dependency build (marginal over its direct dependencies), a typical closure
+# at most 15 s / 3 GB.
+[gates]
+max_lines = 40000
+max_seconds = 5
+max_gb = 1
+closure_seconds = 15
+closure_gb = 3
+
+# The crates a consumer of simba pulls in together: simba and the Q32.32 `fixed` it implements
+# the traits for.
+[closures]
+simba_with_fixed = ["simba", "fixed@0.4.0"]

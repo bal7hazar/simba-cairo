@@ -31,3 +31,33 @@ jobs:
           scarb build
       - name: Test and check the gas snapshot
         run: snforge test --workspace | tee /dev/stderr | python3 scripts/gas_report.py --check gas/
+
+  # Package granularity rule (scripts/consumer_cost.py, copied unchanged from nalgebra-cairo, gates in
+  # consumer_cost.toml): library lines, marginal cold-build cost of an empty consumer, and the closure
+  # `simba_with_fixed`; medians of 5 interleaved rounds. Enforcing.
+  consumer-cost:
+    name: Consumer cost
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: software-mansion/setup-scarb@2a96b748888e3329ee44ac9ac073d930e692b3cd # v1.6.2
+      - name: Self-test, then measure (cold builds, interleaved rounds)
+        run: |
+          [ -x /usr/bin/time ] || sudo apt-get install -y time > /dev/null
+          python3 scripts/consumer_cost.py --self-test
+          set +e
+          python3 scripts/consumer_cost.py --repeat 5 --interleave --json consumer_cost.json | tee consumer_cost.md
+          status=${PIPESTATUS[0]}
+          set -e
+          { echo "### Consumer cost"; echo; cat consumer_cost.md; } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: consumer-cost
+          path: |
+            consumer_cost.json
+            consumer_cost.md
+          if-no-files-found: warn
+          retention-days: 30
