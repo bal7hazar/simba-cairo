@@ -1,98 +1,98 @@
 {
   "simba::benches": {
     "real_cross3": {
-      "baseline": 17140,
-      "direct": 22480,
-      "generic": 22480
+      "baseline": 9310,
+      "direct": 14650,
+      "generic": 14650
     },
     "real_diff_prod": {
-      "acc": 18920,
-      "baseline": 17140,
-      "named": 18920
+      "acc": 11090,
+      "baseline": 9310,
+      "named": 11090
     },
     "real_dot3": {
-      "baseline": 17140,
-      "direct": 19120,
-      "generic": 19120
+      "baseline": 9310,
+      "direct": 11290,
+      "generic": 11290
     },
     "real_jacobi_c": {
-      "alt_inv_norm2": 20780,
-      "baseline": 15940,
-      "recip_sqrt": 22690
+      "alt_inv_norm2": 12950,
+      "baseline": 8110,
+      "recip_sqrt": 14860
     },
     "real_mul_add": {
-      "acc": 18920,
-      "baseline": 17140,
-      "named": 18920
+      "acc": 11090,
+      "baseline": 9310,
+      "named": 11090
     },
     "real_norm16": {
-      "acc": 23880,
-      "baseline": 17140,
-      "typed": 23880
+      "acc": 16050,
+      "baseline": 9310,
+      "typed": 16050
     },
     "real_norm3": {
-      "baseline": 16340,
-      "direct": 18560,
-      "generic": 18560
+      "baseline": 8510,
+      "direct": 10730,
+      "generic": 10730
     },
     "real_norm6": {
-      "acc": 22080,
-      "baseline": 17140,
-      "typed": 22080
+      "acc": 14250,
+      "baseline": 9310,
+      "typed": 14250
     },
     "real_norm9": {
-      "acc": 22480,
-      "baseline": 17140,
-      "typed": 22580
+      "acc": 14650,
+      "baseline": 9310,
+      "typed": 14750
     },
     "real_normalize3": {
-      "baseline": 16340,
-      "div": 28020,
-      "recip": 23840
+      "baseline": 8510,
+      "div": 20190,
+      "recip": 16010
     },
     "real_scalar": {
-      "add": 16980,
-      "atan2": 46270,
-      "baseline": 16340,
-      "cosh": 44740,
-      "div": 19640,
-      "inv_norm2": 20680,
-      "mul": 17920,
-      "recip": 19160,
-      "sin_cos": 47840,
-      "sinh": 46180,
-      "sqrt": 18160,
-      "tanh": 47660
+      "add": 9150,
+      "atan2": 38440,
+      "baseline": 8510,
+      "cosh": 36910,
+      "div": 11810,
+      "inv_norm2": 12850,
+      "mul": 10090,
+      "recip": 11330,
+      "sin_cos": 40010,
+      "sinh": 38350,
+      "sqrt": 10330,
+      "tanh": 39830
     },
     "real_shared_div2": {
-      "alt_per_element_div": 23870,
-      "baseline": 16740,
-      "prepared": 24000
+      "alt_per_element_div": 16040,
+      "baseline": 8910,
+      "prepared": 16170
     },
     "real_shared_div3": {
-      "alt_per_element_div": 27800,
-      "baseline": 16740,
-      "prepared": 27450
+      "alt_per_element_div": 19970,
+      "baseline": 8910,
+      "prepared": 19620
     },
     "real_shared_div4": {
-      "alt_per_element_div": 32800,
-      "baseline": 17540,
-      "prepared": 31970
+      "alt_per_element_div": 24970,
+      "baseline": 9710,
+      "prepared": 24140
     },
     "real_sum_prod2": {
-      "acc": 18920,
-      "baseline": 17140,
-      "named": 18920
+      "acc": 11090,
+      "baseline": 9310,
+      "named": 11090
     },
     "real_sum_prod3": {
-      "acc": 19120,
-      "baseline": 17140,
-      "named": 19120
+      "acc": 11290,
+      "baseline": 9310,
+      "named": 11290
     },
     "real_sum_prod4": {
-      "acc": 19320,
-      "baseline": 17140,
-      "named": 19320
+      "acc": 11490,
+      "baseline": 9310,
+      "named": 11490
     }
   }
 }
