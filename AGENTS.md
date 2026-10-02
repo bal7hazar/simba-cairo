@@ -29,3 +29,7 @@ step is proven, so gas is a first-class requirement, on par with correctness.
 
 `./scripts/check.sh` green in the foreground, conventional commits, a PR following
 `.github/PULL_REQUEST_TEMPLATE.md`, CI green before merge.
+
+Before every push, `./scripts/prepush.sh` passes (the `.githooks/pre-push` hook runs it): never push red,
+never skip the hook (`--no-verify`). Enable the hook in a fresh clone with
+`git config core.hooksPath .githooks`.

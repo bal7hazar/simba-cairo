@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Runs scripts/prepush.sh and blocks the push on failure. Enable with: git config core.hooksPath .githooks
+# git feeds "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin; the remote sha, when it exists
+# locally, is the base the changes are compared against (a new branch falls back to origin/main).
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+base=origin/main
+zero=0000000000000000000000000000000000000000
+while read -r _ local_sha _ remote_sha; do
+    [[ "$local_sha" == "$zero" ]] && exit 0 # a branch deletion: nothing to check
+    if [[ "$remote_sha" != "$zero" ]] && git cat-file -e "$remote_sha^{commit}" 2> /dev/null; then
+        base=$remote_sha
+    fi
+done
+exec scripts/prepush.sh "$base"
