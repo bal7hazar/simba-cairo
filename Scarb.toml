@@ -4,15 +4,15 @@ members = ["crates/simba"]
 [workspace.package]
 version = "0.2.0"
 edition = "2024_07"
-cairo-version = "2.19.4"
+cairo-version = "2.20.0"
 authors = ["bal7hazar"]
 license = "MIT"
 repository = "https://github.com/bal7hazar/simba-cairo"
 keywords = ["math", "scalar", "fixed-point", "linear-algebra", "gamedev"]
 
 [workspace.dependencies]
-snforge_std = "0.61.0"
-assert_macros = "2.19.4"
+snforge_std = "0.64.0"
+assert_macros = "2.20.0"
 
 [workspace.tool.fmt]
 sort-module-level-items = true

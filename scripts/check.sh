@@ -2,6 +2,9 @@
 # Local equivalent of the CI gate. Pass `--update` to refresh the gas snapshot.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# The Cairo compiler is not deterministic on several threads: Sierra, and so the gas snapshot, are only
+# reproducible single-threaded.
+export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-1}"
 
 scarb fmt --check
 scarb lint --deny-warnings

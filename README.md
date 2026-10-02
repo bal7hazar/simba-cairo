@@ -33,4 +33,4 @@ CI job `Consumer cost` (`scripts/consumer_cost.py`, gates in `consumer_cost.toml
 library lines, at most 5 s / 1 GB marginal cold-build cost, and the closure `simba` + `fixed` under
 15 s / 3 GB. Measured locally: 711 library lines, closure with `fixed` 2.1 s / 0.24 GB over the
 no-dependency build.
-Toolchain pinned in `.tool-versions` (scarb 2.19.4, starknet-foundry 0.61.0).
+Toolchain pinned in `.tool-versions` (scarb 2.20.1, starknet-foundry 0.64.0).
