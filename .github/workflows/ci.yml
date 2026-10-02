@@ -14,7 +14,7 @@ defaults:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   library:
@@ -24,8 +24,20 @@ jobs:
       RAYON_NUM_THREADS: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: software-mansion/setup-scarb@2a96b748888e3329ee44ac9ac073d930e692b3cd # v1.6.2
-      - uses: foundry-rs/setup-snfoundry@16e23ddd0e2845f38727c92f4b913a7b728cda9e # v6.0.0
+      - id: scarb
+        continue-on-error: true
+        uses: software-mansion/setup-scarb@2a96b748888e3329ee44ac9ac073d930e692b3cd # v1.6.2
+      - if: steps.scarb.outcome == 'failure'
+        run: sleep 20
+      - if: steps.scarb.outcome == 'failure'
+        uses: software-mansion/setup-scarb@2a96b748888e3329ee44ac9ac073d930e692b3cd # v1.6.2
+      - id: snfoundry
+        continue-on-error: true
+        uses: foundry-rs/setup-snfoundry@16e23ddd0e2845f38727c92f4b913a7b728cda9e # v6.0.0
+      - if: steps.snfoundry.outcome == 'failure'
+        run: sleep 20
+      - if: steps.snfoundry.outcome == 'failure'
+        uses: foundry-rs/setup-snfoundry@16e23ddd0e2845f38727c92f4b913a7b728cda9e # v6.0.0
       - name: Format, lint, build
         run: |
           scarb fmt --check
@@ -45,7 +57,13 @@ jobs:
       RAYON_NUM_THREADS: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: software-mansion/setup-scarb@2a96b748888e3329ee44ac9ac073d930e692b3cd # v1.6.2
+      - id: scarb
+        continue-on-error: true
+        uses: software-mansion/setup-scarb@2a96b748888e3329ee44ac9ac073d930e692b3cd # v1.6.2
+      - if: steps.scarb.outcome == 'failure'
+        run: sleep 20
+      - if: steps.scarb.outcome == 'failure'
+        uses: software-mansion/setup-scarb@2a96b748888e3329ee44ac9ac073d930e692b3cd # v1.6.2
       - name: Self-test, then measure (cold builds, interleaved rounds)
         run: |
           [ -x /usr/bin/time ] || sudo apt-get install -y time > /dev/null
