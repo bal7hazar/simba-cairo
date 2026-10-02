@@ -10,7 +10,7 @@
 # triggers everything; prose `.md` files (`crates/**/*.md`, docs, ...) trigger nothing, a checked `.md`
 # artefact (`gas/*.md`) triggers its check. A push of prose only takes seconds.
 #   scarb fmt --check                              a `.cairo` file or the toolchain set changed
-#   python3 scripts/consumer_cost.py --self-test   scripts/consumer_cost.py or a workflow changed (its own
+#   python3 scripts/consumer_cost.py --self-test   scripts/consumer_cost.py or the toolchain set changed (its own
 #                                                  logic, no scarb; consumer_cost.toml is not read by it)
 #                                                  (scripts/gas_report.py has no self-test: the gas check exercises it)
 #   scarb lint --deny-warnings, scarb build        crates/** (not .md), the toolchain set or scripts/check.sh
@@ -30,8 +30,8 @@
 # that runs; it touches the lock only through `flock -w`.
 # The wait starts BEFORE the fixed checks (fmt, self-test) and overlaps them: the waiting process, once it
 # holds the lock, holds it until those checks have passed and then runs the Cairo block; if one of them
-# fails the script exits at once, and the waiting process (which holds and runs nothing) ends by itself as
-# soon as it sees that. A busy lock thus costs about 90 s in all, not 90 s plus the checks. If the lock is
+# fails, or the script is interrupted, it signals (SIGTERM) its own waiting process, which stops its own Cairo
+# steps, if any, and releases the lock; it never signals any other process. A busy lock thus costs about 90 s in all, not 90 s plus the checks. If the lock is
 # not obtained in 90 s the whole Cairo block is skipped, with the single line
 # `heavy lock busy: Cairo compile left to CI`, and the push is not blocked (CI runs them).
 # Without the lock (no lock directory or no `flock`, as on the Mac), or when a caller already holds it
@@ -50,12 +50,18 @@ export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-1}"
 start=$SECONDS
 step="start"
 workdir=""
+waiter=""
 on_exit() {
     local rc=$?
     if [[ $rc -ne 0 ]]; then echo "prepush: FAILED at step: ${step} ($((SECONDS - start))s)" >&2; fi
+    # Our own background child, if still running (a fixed check failed while it waited for the lock, or we were
+    # interrupted): it stops its own Cairo steps on SIGTERM and so releases the lock. Nothing else is signalled.
+    if [[ -n "$waiter" ]]; then kill -TERM "$waiter" 2> /dev/null || true; fi
     if [[ -n "$workdir" ]]; then rm -rf "$workdir"; fi
 }
 trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM HUP
 
 run() { step="$1"; shift; local t=$SECONDS; echo "prepush: $step"; "$@"; echo "prepush: $step: $((SECONDS - t))s"; }
 
@@ -91,8 +97,25 @@ if [[ "${PREPUSH_INNER:-}" == 1 ]]; then
     done
     export HEAVY_BUILD_LOCK_HELD=1 # the lock really is held here: the shims run nested, without re-locking
     echo "prepush: heavy lock obtained after $((got - PREPUSH_T0))s of waiting (the fixed checks ran meanwhile)"
-    cairo_block
-    exit 0
+    # The block runs as our child so that a signal (the caller was interrupted: it forwards SIGTERM to us) is
+    # handled at once, and the caller's death is noticed: either way the block's own descendants (and only
+    # those) are stopped, which releases the lock. Background jobs of a script ignore SIGINT, hence SIGTERM.
+    kill_tree() { local c; for c in $(pgrep -P "$1" 2> /dev/null); do kill_tree "$c"; done; kill -TERM "$1" 2> /dev/null || true; }
+    { trap on_exit EXIT; cairo_block; } &
+    block=$!
+    trap 'kill_tree "$block"; trap - EXIT; echo "prepush: interrupted, Cairo block stopped, lock released" >&2; exit 143' TERM INT HUP
+    while kill -0 "$block" 2> /dev/null; do
+        if ! kill -0 "$PREPUSH_PARENT" 2> /dev/null; then
+            kill_tree "$block"
+            trap - EXIT
+            exit 143
+        fi
+        sleep 0.3
+    done
+    rc=0
+    wait "$block" || rc=$?
+    trap - EXIT # the block printed its own failure line
+    exit "$rc"
 fi
 
 # The test of the scarb/snforge shims: does an ancestor process (this one included: a caller may have exec'd
@@ -113,7 +136,7 @@ relay_until_exit() {
     flush() {
         size=$(wc -c < "$out")
         if ((size > off)); then
-            tail -c +$((off + 1)) "$out" | head -c $((size - off))
+            tail -c +$((off + 1)) "$out" | head -c $((size - off)) || true
             off=$size
         fi
     }
@@ -134,7 +157,7 @@ has() { grep -Eq "$1" <<< "$2"; }
 DO_FMT=0 DO_COST_TEST=0
 PREPUSH_DO_BUILD=0 PREPUSH_DO_GAS=0
 if has '\.cairo$' "$changed" || has "$toolchain" "$changed"; then DO_FMT=1; fi
-if has '^(scripts/consumer_cost\.py$|\.github/workflows/)' "$changed"; then DO_COST_TEST=1; fi
+if has "$toolchain|^scripts/consumer_cost\\.py\$" "$changed"; then DO_COST_TEST=1; fi
 if has "$toolchain|^(crates/|scripts/check\.sh$)" "$changed_code"; then PREPUSH_DO_BUILD=1; PREPUSH_DO_GAS=1; fi
 if has '^(gas/|scripts/gas_report\.py$)' "$changed"; then PREPUSH_DO_GAS=1; fi
 export PREPUSH_DO_BUILD PREPUSH_DO_GAS
@@ -151,7 +174,6 @@ if [[ "$PREPUSH_DO_BUILD" == 1 || "$PREPUSH_DO_GAS" == 1 ]]; then
     fi
 fi
 
-waiter=""
 if [[ "$mode" == flock ]]; then
     workdir=$(mktemp -d)
     # PREPUSH_DIR/held appears only once the lock is held: a failed step is told apart from a lock that was

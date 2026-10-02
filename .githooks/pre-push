@@ -44,7 +44,11 @@ if ! git diff --quiet HEAD; then
     echo "pre-push: refusing: tracked files differ from HEAD; commit or stash, then push." >&2
     exit 1
 fi
-untracked=$(git --no-optional-locks status --porcelain --untracked-files=all | sed -n 's/^?? //p' \
+status=$(git --no-optional-locks status --porcelain --untracked-files=all) || {
+    echo "pre-push: refusing: git status failed, cannot tell whether untracked files are left." >&2
+    exit 1
+}
+untracked=$(sed -n 's/^?? //p' <<< "$status" \
     | grep -E '^"?(crates/|tests/|benchmarks/|tools/|scripts/|gas/|\.tool-versions"?$|(.*/)?Scarb\.(toml|lock)"?$)' || true)
 if [[ -n "$untracked" ]]; then
     echo "pre-push: refusing: untracked files that a build or a check reads (the build compiles them, CI will not have them):" >&2
