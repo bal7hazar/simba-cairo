@@ -13,12 +13,52 @@ defaults:
     shell: bash # enables pipefail
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Path gating: one boolean per group, computed from the changed paths only. Pushes to main run
+  # every job whatever changed. The toolchain set (.tool-versions, any Scarb.toml / Scarb.lock, the
+  # workflows) is in every group. Prose .md files trigger nothing; the checked artefacts do:
+  # gas/simba.md (regenerated and compared by the gas check) is under gas/ and triggers `library`.
+  # The `!(*.md)` extglob keeps prose such as crates/simba/README.md out of the crates paths.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      library: ${{ steps.filter.outputs.library }}
+      cost: ${{ steps.filter.outputs.cost }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            library:
+              - '.tool-versions'
+              - '**/Scarb.toml'
+              - '**/Scarb.lock'
+              - '.github/workflows/**'
+              - 'crates/**/!(*.md)'
+              - 'gas/**'
+              - 'scripts/gas_report.py'
+              - 'scripts/check.sh'
+            cost:
+              - '.tool-versions'
+              - '**/Scarb.toml'
+              - '**/Scarb.lock'
+              - '.github/workflows/**'
+              - 'crates/**/!(*.md)'
+              - 'scripts/consumer_cost.py'
+              - 'consumer_cost.toml'
+
   library:
     name: Library (simba)
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.library == 'true'
     runs-on: ubuntu-latest
     env:
       RAYON_NUM_THREADS: 1
@@ -51,6 +91,8 @@ jobs:
   # `simba_with_fixed`; medians of 5 interleaved rounds. Enforcing.
   consumer-cost:
     name: Consumer cost
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.cost == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -83,3 +125,41 @@ jobs:
             consumer_cost.md
           if-no-files-found: warn
           retention-days: 30
+
+  # What `gh pr checks` always sees. Aggregates `changes`, `library` (group library) and
+  # `consumer-cost` (group cost). A job passes when it succeeded, or when it was skipped by the
+  # paths rule: a pull request whose group output is 'false'. Any other result (failure,
+  # cancellation, a skip while its output was 'true' or on a push) fails.
+  ci-result:
+    name: CI result
+    needs: [changes, library, consumer-cost]
+    if: always()
+    runs-on: ubuntu-latest
+    env:
+      EVENT: ${{ github.event_name }}
+      CHANGES_RESULT: ${{ needs.changes.result }}
+      LIBRARY_RESULT: ${{ needs.library.result }}
+      LIBRARY_CHANGED: ${{ needs.changes.outputs.library }}
+      COST_RESULT: ${{ needs.consumer-cost.result }}
+      COST_CHANGED: ${{ needs.changes.outputs.cost }}
+    steps:
+      - name: Aggregate
+        run: |
+          status=0
+          if [ "$CHANGES_RESULT" != success ]; then
+            echo "changes: $CHANGES_RESULT (must be success)"
+            status=1
+          fi
+          check() { # name result changed
+            if [ "$2" = success ]; then
+              echo "$1: success"
+            elif [ "$2" = skipped ] && [ "$EVENT" = pull_request ] && [ "$3" = false ]; then
+              echo "$1: skipped by the paths rule"
+            else
+              echo "$1: $2 (paths output: '$3', event: $EVENT)"
+              status=1
+            fi
+          }
+          check library "$LIBRARY_RESULT" "$LIBRARY_CHANGED"
+          check consumer-cost "$COST_RESULT" "$COST_CHANGED"
+          exit $status
