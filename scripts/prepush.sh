@@ -16,8 +16,11 @@
 # The heavy-build lock. On the shared VPS the scarb/snforge shims serialise every compile through one lock
 # file ($HEAVY_BUILD_LOCK, default ~/orchestrator/heavy-build.lock; it prevents running out of memory) and
 # let a nested call run without re-locking when an ancestor process already holds that file. The Cairo steps
-# are therefore run as ONE block under `flock -w 90 <that same lock file>`: this takes the real lock (the
-# shims then run nested, inside it), waiting at most 90 s for its turn. It never bypasses the lock, and it
+# are therefore run as ONE block under `flock -E 75 -w 90 <that same lock file>`: this takes the real lock,
+# waiting at most 90 s for its turn. Inside it the scarb/snforge SHIMS are still called, with
+# HEAVY_BUILD_LOCK_HELD=1 exported (the lock really is held), which they honour as a pass-through: they
+# never wait on the lock a second time. (Calling the real binaries would be equivalent; the shims also set
+# nice and the thread caps.) It never bypasses the lock, and it
 # only gives up waiting: it never signals or kills the process holding the lock, nor a compile that runs.
 # If the lock is not obtained in 90 s the whole Cairo block is skipped, with the single line
 # `heavy lock busy: Cairo compile left to CI`, and the push is not blocked (CI runs them).
