@@ -59,6 +59,7 @@ cairo_block() {
 
 if [[ "${PREPUSH_INNER:-}" == 1 ]]; then
     : > "$PREPUSH_MARK" # the lock is held: tells the caller it was obtained
+    export HEAVY_BUILD_LOCK_HELD=1 # the lock really is held here: the shims run nested, without re-locking
     echo "prepush: heavy lock obtained after $(($(date +%s) - PREPUSH_T0))s of waiting"
     cairo_block
     exit 0
@@ -68,7 +69,7 @@ base="${1:-origin/main}"
 step="resolve base $base"
 git rev-parse --verify --quiet "$base^{commit}" > /dev/null || { echo "prepush: base ref '$base' not found (git fetch origin main?)" >&2; exit 1; }
 merge_base=$(git merge-base "$base" HEAD)
-changed=$(git diff --name-only "$merge_base")
+changed=$(git diff --name-only --no-renames "$merge_base")
 
 run "scarb fmt --check" scarb fmt --check
 run "consumer_cost.py --self-test" python3 scripts/consumer_cost.py --self-test
@@ -87,16 +88,18 @@ else
         step="Cairo compile (the failing step is named above)"
         mark=$(mktemp)
         rm -f "$mark"
-        # PREPUSH_MARK appears only once the lock is held, so a timeout is told apart from a failed step.
-        if ! PREPUSH_INNER=1 PREPUSH_MARK="$mark" PREPUSH_T0=$(date +%s) flock -w 90 "$lock" "$0" "$base"; then
-            if [[ ! -e "$mark" ]]; then
-                echo "heavy lock busy: Cairo compile left to CI"
-            else
-                rm -f "$mark"
-                exit 1 # a step failed inside the lock; it printed its own message and the trap names the step
-            fi
-        else
+        # PREPUSH_MARK appears only once the lock is held: a failed step is told apart from a lock that was
+        # not obtained (flock exit 75 after the 90 s) and from any other flock error.
+        rc=0
+        PREPUSH_INNER=1 PREPUSH_MARK="$mark" PREPUSH_T0=$(date +%s) flock -E 75 -w 90 "$lock" "$0" "$base" || rc=$?
+        if [[ -e "$mark" ]]; then
             rm -f "$mark"
+            [[ $rc -eq 0 ]] || exit 1 # a step failed inside the lock; it printed its own message
+        elif [[ $rc -eq 75 ]]; then
+            echo "heavy lock busy: Cairo compile left to CI"
+        elif [[ $rc -ne 0 ]]; then
+            echo "prepush: flock failed on $lock (exit $rc)" >&2
+            exit 1
         fi
     else
         cairo_block
