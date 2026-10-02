@@ -95,9 +95,10 @@ if [[ "${PREPUSH_INNER:-}" == 1 ]]; then
     exit 0
 fi
 
-# The test of the scarb/snforge shims: does an ancestor process hold the lock file open?
+# The test of the scarb/snforge shims: does an ancestor process (this one included: a caller may have exec'd
+# us under `flock <lock> ...`) hold the lock file open?
 ancestor_holds_lock() {
-    local lock="$1" p=$PPID fds
+    local lock="$1" p=$$ fds
     while [[ -n "$p" && "$p" -gt 1 ]] 2> /dev/null; do
         fds=$(ls -l "/proc/$p/fd" 2> /dev/null || true)
         if grep -qF -- "$lock" <<< "$fds"; then return 0; fi
