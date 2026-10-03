@@ -68,7 +68,8 @@ on_exit() {
     local rc=$?
     if [[ $rc -ne 0 ]]; then echo "prepush: FAILED at step: ${step} ($((SECONDS - start))s)" >&2; fi
     stop_waiter
-    if [[ -n "$workdir" ]]; then rm -rf "$workdir"; fi
+    if [[ -n "$workdir" ]]; then rm -rf "$workdir" || true; fi
+    return 0
 }
 trap on_exit EXIT
 trap 'exit 130' INT
@@ -108,15 +109,16 @@ if [[ "${PREPUSH_INNER:-}" == 1 ]]; then
     done
     export HEAVY_BUILD_LOCK_HELD=1 # the lock really is held here: the shims run nested, without re-locking
     echo "prepush: heavy lock obtained after $((got - PREPUSH_T0))s of waiting (the fixed checks ran meanwhile)"
-    # We lead the process group that the caller started for us (flock, which exec'd this script, and the block
-    # below are all in it). The caller stops it with SIGTERM to the group, which reaches the block and its
-    # compile as well; when the caller dies without being able to (SIGKILL), we notice it and signal the group
-    # ourselves, only when it really is ours (we lead it). Either way the lock is released.
+    # We run in the process group that the caller started for us. util-linux flock forks, so that group is led
+    # by flock (our parent, $PPID, fixed by bash at start), not by us; flock, this script and the block below
+    # are all in it. The caller stops it with SIGTERM to the group, which reaches the block and its compile as
+    # well; when the caller dies without being able to (SIGKILL), or we alone are signalled, we signal the group
+    # ourselves, only when it really is the one flock (or we) lead. Either way the lock is released.
     stop_group() {
         local pg
         trap - TERM INT HUP
         pg=$(ps -o pgid= -p $$ 2> /dev/null | tr -d ' ') || pg=""
-        if [[ "$pg" == "$$" ]]; then kill -TERM -- "-$$" 2> /dev/null || true; fi
+        if [[ "$pg" == "$PPID" || "$pg" == "$$" ]]; then kill -TERM -- "-$pg" 2> /dev/null || true; fi
         exit 143
     }
     { trap on_exit EXIT; cairo_block; } &
