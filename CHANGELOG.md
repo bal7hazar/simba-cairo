@@ -2,6 +2,26 @@
 
 Numeric results are part of the API: any change of a result is a MINOR bump (pre-1.0).
 
+## 0.3.0 (unreleased)
+
+- `fixed = "0.5.0"` (was 0.4.0). Breaking under pre-1.0 caret resolution: consumers must pin `fixed`
+  0.5 as well. No existing result changes through it: `fixed` 0.5.0 is a pure addition (its
+  changelog: "no numeric result of 0.4.0 changes"), and every result of a method simba already
+  delegated to is unchanged.
+- **Behaviour change**: `Real::is_sign_positive(0)` is now `true` (it was `false`). It forwards to
+  `fixed::FixedTrait::is_sign_positive` (`self >= 0`, there is no negative zero) instead of
+  `is_positive` (`self > 0`), so zero is positive as `+0.0` is in simba-rs on `f64`.
+- `Transcendental::{sinh_cosh, asinh, acosh, atanh}` (simba-rs `ComplexField` names), delegating to
+  `fixed::exp::ExpTrait`. `sinh_cosh` is bit-identical to `(sinh, cosh)` from one shared
+  exponential; `asinh` / `acosh` / `atanh` are within 0.68 ulp (`atanh` 0.57), exactly odd
+  (`asinh`, `atanh`). Domain errors are `fixed`'s, not simba-rs's NaN: `acosh` panics
+  (`'Fixed: acosh domain'`) below 1, `atanh` panics (`'Fixed: atanh domain'`) for `|x| >= 1`.
+- Forwarded from `fixed` (simba-rs `RealField` / `ComplexField` names, each with a zero-cost bench):
+  `Real::{copysign, ceil, round, trunc, fract, powi, hypot, frac_pi_8, frac_2_pi}` and
+  `Transcendental::{exp2, exp_m1, ln_1p, log, log2, log10, powf}`. Overflow and domain errors panic
+  with `fixed`'s messages where `f64` returns an infinity or NaN. `hypot` is `norm2` (floor of the
+  exact root).
+
 ## 0.2.0 (2026-09-25)
 
 - `fixed = "0.4.0"` (was 0.3.0). Breaking under pre-1.0 caret resolution: `fixed::Fixed` is

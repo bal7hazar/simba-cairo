@@ -71,11 +71,7 @@ fn test_real_helpers_forward_to_fixed() {
             && !Real::is_sign_negative(b)
             && !Real::is_sign_negative(Real::<Fixed>::zero()),
     );
-    assert!(
-        Real::is_sign_positive(b)
-            && !Real::is_sign_positive(a)
-            && !Real::is_sign_positive(Real::<Fixed>::zero()),
-    );
+    assert!(Real::is_sign_positive(b) && !Real::is_sign_positive(a));
     assert!(Real::min(a, b) == a && Real::max(a, b) == b);
     assert!(Real::clamp(c, a, b) == b && Real::clamp(d, a, b) == d);
     assert!(Real::floor(a) == FixedTrait::floor(a) && Real::floor(a) == fx(-0x2_0000_0000));
@@ -410,4 +406,196 @@ fn test_real_div3_overflow_panics() {
     let _ = Real::div3(
         fx(A), Real::<Fixed>::max_value().unwrap(), fx(C), black_box(Real::<Fixed>::HALF),
     );
+}
+
+// --- simba 0.3.0: `is_sign_positive` at zero, the methods forwarded from `fixed` ---------------
+
+#[test]
+fn test_real_is_sign_positive_at_zero() {
+    // Behaviour change of 0.3.0: zero is positive (`+0.0`), it was `self > 0`.
+    let zero = Real::<Fixed>::zero();
+    assert!(Real::is_sign_positive(zero) && !Real::is_sign_negative(zero));
+    assert!(Real::is_sign_positive(zero) == FixedTrait::is_sign_positive(zero));
+    assert!(!FixedTrait::is_positive(zero));
+    assert!(Real::is_sign_positive(fx(1)) && !Real::is_sign_positive(fx(-1)));
+    assert!(Real::is_sign_positive(fixed::MAX) && !Real::is_sign_positive(fixed::MIN));
+    // Exactly one of the two holds for every value.
+    assert!(Real::is_sign_positive(fx(D)) != Real::is_sign_negative(fx(D)));
+}
+
+#[test]
+fn test_real_rounding_forwards_to_fixed() {
+    let (a, b, d) = (fx(A), fx(B), fx(D));
+    assert!(Real::ceil(a) == FixedTrait::ceil(a) && Real::ceil(a) == Real::NEG_ONE);
+    assert!(Real::ceil(b) == Real::one() && Real::ceil(d) == Real::zero());
+    assert!(Real::round(a) == FixedTrait::round(a) && Real::round(a) == Real::NEG_ONE);
+    assert!(Real::round(b) == Real::one());
+    // Ties away from zero.
+    assert!(Real::round(fx(0x1_8000_0000)) == Real::<Fixed>::TWO);
+    assert!(Real::round(fx(-0x1_8000_0000)) == -Real::<Fixed>::TWO);
+    assert!(Real::trunc(a) == FixedTrait::trunc(a) && Real::trunc(a) == Real::NEG_ONE);
+    assert!(Real::trunc(b) == Real::zero() && Real::trunc(d) == Real::zero());
+    // `fract` keeps the sign of `self`: `self - trunc(self)`.
+    assert!(Real::fract(a) == FixedTrait::fract(a) && Real::fract(a) == fx(A + 0x1_0000_0000));
+    assert!(Real::fract(b) == b && Real::fract(d) == d);
+}
+
+#[test]
+fn test_real_copysign_powi_hypot_forward_to_fixed() {
+    let (a, b, c) = (fx(A), fx(B), fx(C));
+    assert!(Real::copysign(b, a) == FixedTrait::copysign(b, a) && Real::copysign(b, a) == -b);
+    assert!(Real::copysign(a, b) == -a && Real::copysign(a, Real::zero()) == -a);
+    assert!(
+        Real::powi(a, 3) == FixedTrait::powi(a, 3) && Real::powi(c, -2) == FixedTrait::powi(c, -2),
+    );
+    assert!(Real::powi(Real::<Fixed>::TWO, 3) == Real::from_int(8));
+    assert!(Real::powi(Real::<Fixed>::TWO, -2) == fx(0x4000_0000));
+    assert!(Real::powi(a, 0) == Real::one() && Real::powi(a, 1) == a);
+    assert!(Real::hypot(a, b) == wide::norm2(a, b) && Real::hypot(a, b) == Real::norm2(a, b));
+    assert!(Real::hypot(Real::<Fixed>::from_int(3), Real::from_int(-4)) == Real::from_int(5));
+}
+
+#[test]
+fn test_real_forwarded_constants_are_fixeds() {
+    assert!(Real::<Fixed>::frac_pi_8() == fixed::FRAC_PI_8);
+    assert!(Real::<Fixed>::frac_2_pi() == fixed::FRAC_2_PI);
+    // Half of π/4 and twice 1/π, to within an ulp (each constant is rounded to nearest).
+    let d8 = Real::<Fixed>::frac_pi_4().raw - 2 * Real::<Fixed>::frac_pi_8().raw;
+    assert!(d8 >= -1 && d8 <= 1);
+    let d2 = Real::<Fixed>::frac_2_pi().raw - 2 * Real::<Fixed>::frac_1_pi().raw;
+    assert!(d2 >= -1 && d2 <= 1);
+}
+
+#[test]
+#[should_panic(expected: 'Fixed: overflow')]
+fn test_real_ceil_overflow_panics() {
+    let _ = Real::ceil(black_box(fixed::MAX));
+}
+
+#[test]
+#[should_panic(expected: 'Fixed: overflow')]
+fn test_real_copysign_min_panics() {
+    let _ = Real::copysign(black_box(fixed::MIN), Real::one());
+}
+
+#[test]
+#[should_panic(expected: 'Fixed: division by zero')]
+fn test_real_powi_zero_to_negative_panics() {
+    let _ = Real::powi(black_box(Real::<Fixed>::zero()), -1);
+}
+
+// --- simba 0.3.0: `sinh_cosh`, `asinh` / `acosh` / `atanh`, the exp / log family ----------------
+
+#[test]
+fn test_transcendental_sinh_cosh_is_the_pair() {
+    let (a, b, c) = (fx(A), fx(B), fx(C));
+    assert!(Transcendental::sinh_cosh(a) == ExpTrait::sinh_cosh(a));
+    // Bit-identical to the two calls it replaces, below and above 2 (where `sinh` needs `exp`).
+    assert!(Transcendental::sinh_cosh(a) == (Transcendental::sinh(a), Transcendental::cosh(a)));
+    assert!(Transcendental::sinh_cosh(b) == (Transcendental::sinh(b), Transcendental::cosh(b)));
+    assert!(Transcendental::sinh_cosh(c) == (Transcendental::sinh(c), Transcendental::cosh(c)));
+    let big = Real::<Fixed>::from_int(10);
+    assert!(
+        Transcendental::sinh_cosh(big) == (Transcendental::sinh(big), Transcendental::cosh(big)),
+    );
+    assert!(Transcendental::sinh_cosh(Real::<Fixed>::zero()) == (Real::zero(), Real::one()));
+}
+
+#[test]
+fn test_transcendental_inverse_hyperbolics_forward_to_fixed() {
+    let (a, b, c) = (fx(A), fx(B), fx(C));
+    assert!(Transcendental::asinh(a) == ExpTrait::asinh(a));
+    assert!(Transcendental::asinh(c) == ExpTrait::asinh(c));
+    assert!(Transcendental::acosh(c) == ExpTrait::acosh(c));
+    assert!(Transcendental::atanh(b) == ExpTrait::atanh(b));
+    assert!(Transcendental::atanh(fx(-B)) == ExpTrait::atanh(fx(-B)));
+    // Exact values, and `asinh` / `atanh` exactly odd.
+    let zero = Real::<Fixed>::zero();
+    assert!(Transcendental::asinh(zero) == zero && Transcendental::atanh(zero) == zero);
+    assert!(Transcendental::acosh(Real::<Fixed>::one()) == zero);
+    assert!(Transcendental::asinh(-c) == -Transcendental::asinh(c));
+    assert!(Transcendental::atanh(-b) == -Transcendental::atanh(b));
+    // `asinh` covers the whole range.
+    assert!(Transcendental::asinh(fixed::MIN) == ExpTrait::asinh(fixed::MIN));
+    assert!(Transcendental::asinh(fixed::MAX) == ExpTrait::asinh(fixed::MAX));
+}
+
+#[test]
+fn test_transcendental_inverse_hyperbolics_round_trip() {
+    // sinh(asinh(x)) = x, cosh(acosh(x)) = x, tanh(atanh(x)) = x, to within a few ulp.
+    let tol = 64_u64;
+    let (b, c) = (fx(B), fx(C));
+    assert!(Real::abs_diff_eq(Transcendental::sinh(Transcendental::asinh(c)), c, tol));
+    assert!(Real::abs_diff_eq(Transcendental::sinh(Transcendental::asinh(-c)), -c, tol));
+    assert!(Real::abs_diff_eq(Transcendental::cosh(Transcendental::acosh(c)), c, tol));
+    assert!(Real::abs_diff_eq(Transcendental::tanh(Transcendental::atanh(b)), b, tol));
+    assert!(Real::abs_diff_eq(Transcendental::tanh(Transcendental::atanh(-b)), -b, tol));
+}
+
+#[test]
+#[should_panic(expected: 'Fixed: acosh domain')]
+fn test_transcendental_acosh_below_one_panics() {
+    let _ = Transcendental::acosh(black_box(fx(0xFFFF_FFFF)));
+}
+
+#[test]
+#[should_panic(expected: 'Fixed: atanh domain')]
+fn test_transcendental_atanh_of_one_panics() {
+    let _ = Transcendental::atanh(black_box(Real::<Fixed>::one()));
+}
+
+#[test]
+#[should_panic(expected: 'Fixed: atanh domain')]
+fn test_transcendental_atanh_of_minus_one_panics() {
+    let _ = Transcendental::atanh(black_box(Real::<Fixed>::NEG_ONE));
+}
+
+#[test]
+fn test_transcendental_exp_log_family_forwards_to_fixed() {
+    let (a, b, c) = (fx(A), fx(B), fx(C));
+    assert!(Transcendental::exp2(a) == ExpTrait::exp2(a));
+    assert!(Transcendental::exp_m1(a) == ExpTrait::exp_m1(a));
+    assert!(Transcendental::ln_1p(b) == ExpTrait::ln_1p(b));
+    assert!(Transcendental::log(c, b + Real::one()) == ExpTrait::log(c, b + Real::one()));
+    assert!(Transcendental::log2(c) == ExpTrait::log2(c));
+    assert!(Transcendental::log10(c) == ExpTrait::log10(c));
+    assert!(Transcendental::powf(c, a) == ExpTrait::powf(c, a));
+    // Exact values.
+    let zero = Real::<Fixed>::zero();
+    assert!(Transcendental::exp2(Real::<Fixed>::from_int(3)) == Real::from_int(8));
+    assert!(Transcendental::exp2(Real::<Fixed>::from_int(-2)) == fx(0x4000_0000));
+    assert!(Transcendental::exp_m1(zero) == zero && Transcendental::ln_1p(zero) == zero);
+    assert!(Transcendental::log2(Real::<Fixed>::from_int(8)) == Real::from_int(3));
+    assert!(Transcendental::log2(Real::<Fixed>::one()) == zero);
+    assert!(Transcendental::log10(Real::<Fixed>::one()) == zero);
+    assert!(Transcendental::powf(c, zero) == Real::one());
+    assert!(Transcendental::powf(zero, Real::TWO) == zero);
+    // Negative base, integer exponent: the sign of `powi`.
+    assert!(
+        Transcendental::powf(-Real::<Fixed>::TWO, Real::from_int(3)) == -Real::<Fixed>::from_int(8),
+    );
+}
+
+#[test]
+#[should_panic(expected: 'Fixed: ln domain')]
+fn test_transcendental_log2_of_zero_panics() {
+    let _ = Transcendental::log2(black_box(Real::<Fixed>::zero()));
+}
+
+#[test]
+#[should_panic(expected: 'Fixed: ln domain')]
+fn test_transcendental_ln_1p_of_minus_one_panics() {
+    let _ = Transcendental::ln_1p(black_box(Real::<Fixed>::NEG_ONE));
+}
+
+#[test]
+#[should_panic(expected: 'Fixed: division by zero')]
+fn test_transcendental_log_base_one_panics() {
+    let _ = Transcendental::log(black_box(Real::<Fixed>::TWO), Real::one());
+}
+
+#[test]
+#[should_panic(expected: 'Fixed: powf domain')]
+fn test_transcendental_powf_negative_base_fraction_panics() {
+    let _ = Transcendental::powf(black_box(Real::<Fixed>::NEG_ONE), Real::HALF);
 }

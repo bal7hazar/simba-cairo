@@ -13,4 +13,4 @@ closure_gb = 3
 # The crates a consumer of simba pulls in together: simba and the Q32.32 `fixed` it implements
 # the traits for.
 [closures]
-simba_with_fixed = ["simba", "fixed@0.4.0"]
+simba_with_fixed = ["simba", "fixed@0.5.0"]

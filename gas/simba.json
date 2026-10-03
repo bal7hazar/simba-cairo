@@ -1,5 +1,30 @@
 {
   "simba::benches": {
+    "real_acosh": {
+      "baseline": 8110,
+      "direct": 36620,
+      "generic": 36620
+    },
+    "real_asinh": {
+      "baseline": 8110,
+      "direct": 37600,
+      "generic": 37600
+    },
+    "real_atanh": {
+      "baseline": 8110,
+      "direct": 42760,
+      "generic": 42760
+    },
+    "real_ceil": {
+      "baseline": 8110,
+      "direct": 10020,
+      "generic": 10020
+    },
+    "real_copysign": {
+      "baseline": 8510,
+      "direct": 10270,
+      "generic": 10270
+    },
     "real_cross3": {
       "baseline": 9310,
       "direct": 14650,
@@ -15,10 +40,50 @@
       "direct": 11290,
       "generic": 11290
     },
+    "real_exp2": {
+      "baseline": 8110,
+      "direct": 27570,
+      "generic": 27570
+    },
+    "real_exp_m1": {
+      "baseline": 8110,
+      "direct": 30090,
+      "generic": 30090
+    },
+    "real_fract": {
+      "baseline": 8110,
+      "direct": 10390,
+      "generic": 10390
+    },
+    "real_hypot": {
+      "baseline": 8510,
+      "direct": 11030,
+      "generic": 11030
+    },
     "real_jacobi_c": {
       "alt_inv_norm2": 12950,
       "baseline": 8110,
       "recip_sqrt": 14860
+    },
+    "real_ln_1p": {
+      "baseline": 8110,
+      "direct": 28870,
+      "generic": 28870
+    },
+    "real_log": {
+      "baseline": 8510,
+      "direct": 51030,
+      "generic": 51030
+    },
+    "real_log10": {
+      "baseline": 8110,
+      "direct": 28030,
+      "generic": 28030
+    },
+    "real_log2": {
+      "baseline": 8110,
+      "direct": 28030,
+      "generic": 28030
     },
     "real_mul_add": {
       "acc": 11090,
@@ -50,6 +115,21 @@
       "div": 20190,
       "recip": 16010
     },
+    "real_powf": {
+      "baseline": 8510,
+      "direct": 56440,
+      "generic": 56440
+    },
+    "real_powi": {
+      "baseline": 8110,
+      "direct": 10190,
+      "generic": 10190
+    },
+    "real_round": {
+      "baseline": 8110,
+      "direct": 10590,
+      "generic": 10590
+    },
     "real_scalar": {
       "add": 9150,
       "atan2": 38440,
@@ -79,6 +159,11 @@
       "baseline": 9710,
       "prepared": 24140
     },
+    "real_sinh_cosh": {
+      "baseline": 8110,
+      "direct": 50110,
+      "generic": 50110
+    },
     "real_sum_prod2": {
       "acc": 11090,
       "baseline": 9310,
@@ -93,6 +178,11 @@
       "acc": 11490,
       "baseline": 9310,
       "named": 11490
+    },
+    "real_trunc": {
+      "baseline": 8110,
+      "direct": 10490,
+      "generic": 10490
     }
   }
 }

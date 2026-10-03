@@ -68,8 +68,12 @@ pub trait Real<T> {
     fn frac_pi_4() -> T;
     /// π/6. Upstream: `RealField::frac_pi_6`.
     fn frac_pi_6() -> T;
+    /// π/8. Upstream: `RealField::frac_pi_8`.
+    fn frac_pi_8() -> T;
     /// 1/π. Upstream: `RealField::frac_1_pi`.
     fn frac_1_pi() -> T;
+    /// 2/π. Upstream: `RealField::frac_2_pi`.
+    fn frac_2_pi() -> T;
     /// Euler's number. Upstream: `RealField::e`.
     fn e() -> T;
     /// ln 2. Upstream: `RealField::ln_2`.
@@ -108,7 +112,8 @@ pub trait Real<T> {
     fn signum(self: T) -> T;
     /// `self < 0`. Upstream: `RealField::is_sign_negative`.
     fn is_sign_negative(self: T) -> bool;
-    /// `self > 0`. Upstream: `RealField::is_sign_positive`.
+    /// `self >= 0`: zero is positive, as `+0.0` for `f64` (there is no negative zero). Upstream:
+    /// `RealField::is_sign_positive`. Before simba 0.3.0 this was `self > 0`.
     fn is_sign_positive(self: T) -> bool;
     /// The smaller of two values.
     fn min(self: T, other: T) -> T;
@@ -116,13 +121,32 @@ pub trait Real<T> {
     fn max(self: T, other: T) -> T;
     /// `self` restricted to `[lo, hi]` (`lo <= hi` is not checked).
     fn clamp(self: T, lo: T, hi: T) -> T;
+    /// `|self|` with the sign of `sign`: zero counts as positive. Panics (`'Fixed: overflow'`) for
+    /// the smallest value with a non-negative `sign`. Upstream: `RealField::copysign`.
+    fn copysign(self: T, sign: T) -> T;
     /// Largest integer `<= self`.
     fn floor(self: T) -> T;
+    /// Smallest integer `>= self`. Panics on overflow. Upstream: `ComplexField::ceil`.
+    fn ceil(self: T) -> T;
+    /// Nearest integer, ties away from zero. Panics on overflow. Upstream: `ComplexField::round`.
+    fn round(self: T) -> T;
+    /// Integer part, rounded toward zero. Upstream: `ComplexField::trunc`.
+    fn trunc(self: T) -> T;
+    /// `self - trunc(self)`: the fractional part, with the sign of `self`. Upstream:
+    /// `ComplexField::fract`.
+    fn fract(self: T) -> T;
+    /// `self` to the integer power `n` (each product rounded toward negative infinity; a negative
+    /// `n` takes the reciprocal of the positive power, to nearest). Panics on overflow, and on a
+    /// zero power with `n < 0`. Not inlined by `fixed` (a loop), upstream: `ComplexField::powi`.
+    fn powi(self: T, n: i32) -> T;
     /// `1 / self`, bit-identical to `Real::div(one(), self)` and cheaper (to nearest, ties to even
     /// for `fixed::Fixed`).
     fn recip(self: T) -> T;
     /// Square root (floor of the exact root for `fixed::Fixed`). Panics on a negative input.
     fn sqrt(self: T) -> T;
+    /// `sqrt(self^2 + other^2)` without intermediate overflow, the same kernel as `norm2`.
+    /// Upstream: `ComplexField::hypot`.
+    fn hypot(self: T, other: T) -> T;
     /// `|self - other| <= ulps` smallest units (raw units for fixed point).
     fn abs_diff_eq(self: T, other: T, ulps: u64) -> bool;
 
@@ -253,12 +277,39 @@ pub trait Transcendental<T> {
     fn exp(self: T) -> T;
     /// Natural logarithm. Panics on a non-positive input.
     fn ln(self: T) -> T;
+    /// `2^self`. Panics on overflow. Upstream: `ComplexField::exp2`.
+    fn exp2(self: T) -> T;
+    /// `e^self - 1`. Panics on overflow. Upstream: `ComplexField::exp_m1`.
+    fn exp_m1(self: T) -> T;
+    /// `ln(1 + self)`. Panics when `self <= -1`. Upstream: `ComplexField::ln_1p`.
+    fn ln_1p(self: T) -> T;
+    /// Logarithm of `self` in base `base`. Panics on a non-positive `self` or `base`, and when
+    /// `base` is 1. Upstream: `ComplexField::log`.
+    fn log(self: T, base: T) -> T;
+    /// Base-2 logarithm. Panics on a non-positive input. Upstream: `ComplexField::log2`.
+    fn log2(self: T) -> T;
+    /// Base-10 logarithm. Panics on a non-positive input. Upstream: `ComplexField::log10`.
+    fn log10(self: T) -> T;
+    /// `self^n`. Panics on overflow, on `0^n` with `n < 0` and on a negative `self` with a
+    /// non-integer `n`. Upstream: `ComplexField::powf`.
+    fn powf(self: T, n: T) -> T;
     /// Hyperbolic sine (simba-rs `ComplexField::sinh`).
     fn sinh(self: T) -> T;
     /// Hyperbolic cosine (simba-rs `ComplexField::cosh`).
     fn cosh(self: T) -> T;
+    /// `(sinh, cosh)` from one shared exponential: bit-identical to `(sinh(x), cosh(x))` and
+    /// cheaper (simba-rs `ComplexField::sinh_cosh`).
+    fn sinh_cosh(self: T) -> (T, T);
     /// Hyperbolic tangent (simba-rs `ComplexField::tanh`).
     fn tanh(self: T) -> T;
+    /// Inverse hyperbolic sine, defined on the whole range (simba-rs `ComplexField::asinh`).
+    fn asinh(self: T) -> T;
+    /// Inverse hyperbolic cosine, in `[0, ∞)`. Panics (`'Fixed: acosh domain'`) below 1, where
+    /// simba-rs on `f64` returns NaN (simba-rs `ComplexField::acosh`).
+    fn acosh(self: T) -> T;
+    /// Inverse hyperbolic tangent. Panics (`'Fixed: atanh domain'`) outside `(-1, 1)`, where
+    /// simba-rs on `f64` returns NaN or an infinity (simba-rs `ComplexField::atanh`).
+    fn atanh(self: T) -> T;
     /// Cardinal hyperbolic sine `sinh(x) / x`, `1` at zero (simba-rs `ComplexField::sinhc`).
     fn sinhc(self: T) -> T;
     /// `cosh(x) / x`, `1` at zero like simba-rs `ComplexField::coshc`.
@@ -309,6 +360,34 @@ pub impl FixedTranscendental of Transcendental<Fixed> {
         ExpTrait::ln(self)
     }
     #[inline(always)]
+    fn exp2(self: Fixed) -> Fixed {
+        ExpTrait::exp2(self)
+    }
+    #[inline(always)]
+    fn exp_m1(self: Fixed) -> Fixed {
+        ExpTrait::exp_m1(self)
+    }
+    #[inline(always)]
+    fn ln_1p(self: Fixed) -> Fixed {
+        ExpTrait::ln_1p(self)
+    }
+    #[inline(always)]
+    fn log(self: Fixed, base: Fixed) -> Fixed {
+        ExpTrait::log(self, base)
+    }
+    #[inline(always)]
+    fn log2(self: Fixed) -> Fixed {
+        ExpTrait::log2(self)
+    }
+    #[inline(always)]
+    fn log10(self: Fixed) -> Fixed {
+        ExpTrait::log10(self)
+    }
+    #[inline(always)]
+    fn powf(self: Fixed, n: Fixed) -> Fixed {
+        ExpTrait::powf(self, n)
+    }
+    #[inline(always)]
     fn sinh(self: Fixed) -> Fixed {
         ExpTrait::sinh(self)
     }
@@ -317,8 +396,24 @@ pub impl FixedTranscendental of Transcendental<Fixed> {
         ExpTrait::cosh(self)
     }
     #[inline(always)]
+    fn sinh_cosh(self: Fixed) -> (Fixed, Fixed) {
+        ExpTrait::sinh_cosh(self)
+    }
+    #[inline(always)]
     fn tanh(self: Fixed) -> Fixed {
         ExpTrait::tanh(self)
+    }
+    #[inline(always)]
+    fn asinh(self: Fixed) -> Fixed {
+        ExpTrait::asinh(self)
+    }
+    #[inline(always)]
+    fn acosh(self: Fixed) -> Fixed {
+        ExpTrait::acosh(self)
+    }
+    #[inline(always)]
+    fn atanh(self: Fixed) -> Fixed {
+        ExpTrait::atanh(self)
     }
     #[inline(always)]
     fn sinhc(self: Fixed) -> Fixed {
@@ -381,8 +476,16 @@ pub impl FixedReal of Real<Fixed> {
         consts::FRAC_PI_6
     }
     #[inline(always)]
+    fn frac_pi_8() -> Fixed {
+        consts::FRAC_PI_8
+    }
+    #[inline(always)]
     fn frac_1_pi() -> Fixed {
         consts::FRAC_1_PI
+    }
+    #[inline(always)]
+    fn frac_2_pi() -> Fixed {
+        consts::FRAC_2_PI
     }
     #[inline(always)]
     fn e() -> Fixed {
@@ -425,7 +528,7 @@ pub impl FixedReal of Real<Fixed> {
     }
     #[inline(always)]
     fn is_sign_positive(self: Fixed) -> bool {
-        FixedTrait::is_positive(self)
+        FixedTrait::is_sign_positive(self)
     }
     #[inline(always)]
     fn min(self: Fixed, other: Fixed) -> Fixed {
@@ -440,8 +543,32 @@ pub impl FixedReal of Real<Fixed> {
         FixedTrait::clamp(self, lo, hi)
     }
     #[inline(always)]
+    fn copysign(self: Fixed, sign: Fixed) -> Fixed {
+        FixedTrait::copysign(self, sign)
+    }
+    #[inline(always)]
     fn floor(self: Fixed) -> Fixed {
         FixedTrait::floor(self)
+    }
+    #[inline(always)]
+    fn ceil(self: Fixed) -> Fixed {
+        FixedTrait::ceil(self)
+    }
+    #[inline(always)]
+    fn round(self: Fixed) -> Fixed {
+        FixedTrait::round(self)
+    }
+    #[inline(always)]
+    fn trunc(self: Fixed) -> Fixed {
+        FixedTrait::trunc(self)
+    }
+    #[inline(always)]
+    fn fract(self: Fixed) -> Fixed {
+        FixedTrait::fract(self)
+    }
+    #[inline(always)]
+    fn powi(self: Fixed, n: i32) -> Fixed {
+        FixedTrait::powi(self, n)
     }
     #[inline(always)]
     fn recip(self: Fixed) -> Fixed {
@@ -450,6 +577,10 @@ pub impl FixedReal of Real<Fixed> {
     #[inline(always)]
     fn sqrt(self: Fixed) -> Fixed {
         FixedTrait::sqrt(self)
+    }
+    #[inline(always)]
+    fn hypot(self: Fixed, other: Fixed) -> Fixed {
+        wide::norm2(self, other)
     }
     /// `fixed::FixedTrait::abs_diff_eq` with a tolerance of `ulps` raw units. A tolerance beyond
     /// `MAX` raw (`2^63 - 1`) is clamped to it: the only pairs this misjudges are more than

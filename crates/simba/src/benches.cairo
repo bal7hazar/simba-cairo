@@ -18,14 +18,20 @@
 //!   against `Real::div3` / `div4` (`prepared`, one `fixed::wide::RecipNearest`), and at 2
 //!   quotients against `fixed`'s prepared divisor directly: the break-even is 3 quotients.
 //!
+//! - **Zero cost of the forwarded methods** (0.3.0): `sinh_cosh`, `asinh`, `acosh`, `atanh`,
+//!   `exp2`, `exp_m1`, `ln_1p`, `log`, `log2`, `log10`, `powf`, `copysign`, `ceil`, `round`,
+//!   `trunc`, `fract`, `powi`, `hypot`: a `generic` call through `Real` / `Transcendental`
+//!   against the `direct` `fixed` call (one `bench_real_<op>` group each, with its `baseline`).
+//!
 //! Plus the scalar headline figures of `docs/BENCHMARK.md` section 6 (`add`, `mul`, `div`,
 //! `sqrt`, `sin_cos`, `atan2`, `sinh`, `cosh`, `tanh`) on `fixed::Fixed` through `Real` /
 //! `Transcendental`.
 
-use fixed::Fixed;
+use fixed::exp::ExpTrait;
 use fixed::wide::{
     self, AccTrait, NormTrait, RecipNearestTrait, RecipTrait, WideAdd, WideSqrt, wide_mul,
 };
+use fixed::{Fixed, FixedTrait};
 use crate::scalar::{Real, Transcendental};
 use crate::testing::black_box;
 
@@ -579,6 +585,521 @@ fn bench_real_scalar__tanh() {
     let (a, _b) = (black_box(fx(ANGLE)), black_box(fx(Q)));
     let e = black_box(fx(0));
     assert!(Transcendental::tanh(a) != e);
+}
+
+
+// --- zero cost of the methods forwarded in 0.3.0: generic `Real` / `Transcendental` code against
+// the direct `fixed` call (same gas, `bench_real_<op>__generic` == `bench_real_<op>__direct`) ---
+
+/// Generic code over `Real` and `Transcendental` only, as nalgebra's.
+#[generate_trait]
+impl ScalarOps<T, impl R: Real<T>, impl X: Transcendental<T>> of ScalarOpsTrait<T> {
+    #[inline(always)]
+    fn g_sinh_cosh(x: T) -> (T, T) {
+        X::sinh_cosh(x)
+    }
+    #[inline(always)]
+    fn g_asinh(x: T) -> T {
+        X::asinh(x)
+    }
+    #[inline(always)]
+    fn g_acosh(x: T) -> T {
+        X::acosh(x)
+    }
+    #[inline(always)]
+    fn g_atanh(x: T) -> T {
+        X::atanh(x)
+    }
+    #[inline(always)]
+    fn g_exp2(x: T) -> T {
+        X::exp2(x)
+    }
+    #[inline(always)]
+    fn g_exp_m1(x: T) -> T {
+        X::exp_m1(x)
+    }
+    #[inline(always)]
+    fn g_ln_1p(x: T) -> T {
+        X::ln_1p(x)
+    }
+    #[inline(always)]
+    fn g_log(x: T, y: T) -> T {
+        X::log(x, y)
+    }
+    #[inline(always)]
+    fn g_log2(x: T) -> T {
+        X::log2(x)
+    }
+    #[inline(always)]
+    fn g_log10(x: T) -> T {
+        X::log10(x)
+    }
+    #[inline(always)]
+    fn g_powf(x: T, y: T) -> T {
+        X::powf(x, y)
+    }
+    #[inline(always)]
+    fn g_copysign(x: T, y: T) -> T {
+        R::copysign(x, y)
+    }
+    #[inline(always)]
+    fn g_ceil(x: T) -> T {
+        R::ceil(x)
+    }
+    #[inline(always)]
+    fn g_round(x: T) -> T {
+        R::round(x)
+    }
+    #[inline(always)]
+    fn g_trunc(x: T) -> T {
+        R::trunc(x)
+    }
+    #[inline(always)]
+    fn g_fract(x: T) -> T {
+        R::fract(x)
+    }
+    #[inline(always)]
+    fn g_powi(x: T) -> T {
+        R::powi(x, 3)
+    }
+    #[inline(always)]
+    fn g_hypot(x: T, y: T) -> T {
+        R::hypot(x, y)
+    }
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_sinh_cosh__baseline() {
+    let _a = black_box(fx(ANGLE));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_sinh_cosh__generic() {
+    let a = black_box(fx(ANGLE));
+    let e = black_box(fx(0));
+    let (s, t) = ScalarOpsTrait::<Fixed>::g_sinh_cosh(a);
+    assert!(s != e && t != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_sinh_cosh__direct() {
+    let a = black_box(fx(ANGLE));
+    let e = black_box(fx(0));
+    let (s, t) = ExpTrait::sinh_cosh(a);
+    assert!(s != e && t != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_asinh__baseline() {
+    let _a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_asinh__generic() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_asinh(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_asinh__direct() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(ExpTrait::asinh(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_acosh__baseline() {
+    let _a = black_box(fx(AX));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_acosh__generic() {
+    let a = black_box(fx(AX));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_acosh(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_acosh__direct() {
+    let a = black_box(fx(AX));
+    let e = black_box(fx(0));
+    assert!(ExpTrait::acosh(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_atanh__baseline() {
+    let _a = black_box(fx(Q));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_atanh__generic() {
+    let a = black_box(fx(Q));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_atanh(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_atanh__direct() {
+    let a = black_box(fx(Q));
+    let e = black_box(fx(0));
+    assert!(ExpTrait::atanh(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_exp2__baseline() {
+    let _a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_exp2__generic() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_exp2(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_exp2__direct() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(ExpTrait::exp2(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_exp_m1__baseline() {
+    let _a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_exp_m1__generic() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_exp_m1(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_exp_m1__direct() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(ExpTrait::exp_m1(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_ln_1p__baseline() {
+    let _a = black_box(fx(Q));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_ln_1p__generic() {
+    let a = black_box(fx(Q));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_ln_1p(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_ln_1p__direct() {
+    let a = black_box(fx(Q));
+    let e = black_box(fx(0));
+    assert!(ExpTrait::ln_1p(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_log__baseline() {
+    let (_a, _b) = (black_box(fx(AX)), black_box(fx(0x2_0000_0000)));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_log__generic() {
+    let (a, b) = (black_box(fx(AX)), black_box(fx(0x2_0000_0000)));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_log(a, b) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_log__direct() {
+    let (a, b) = (black_box(fx(AX)), black_box(fx(0x2_0000_0000)));
+    let e = black_box(fx(0));
+    assert!(ExpTrait::log(a, b) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_log2__baseline() {
+    let _a = black_box(fx(AX));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_log2__generic() {
+    let a = black_box(fx(AX));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_log2(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_log2__direct() {
+    let a = black_box(fx(AX));
+    let e = black_box(fx(0));
+    assert!(ExpTrait::log2(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_log10__baseline() {
+    let _a = black_box(fx(AX));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_log10__generic() {
+    let a = black_box(fx(AX));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_log10(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_log10__direct() {
+    let a = black_box(fx(AX));
+    let e = black_box(fx(0));
+    assert!(ExpTrait::log10(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_powf__baseline() {
+    let (_a, _b) = (black_box(fx(AX)), black_box(fx(Q)));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_powf__generic() {
+    let (a, b) = (black_box(fx(AX)), black_box(fx(Q)));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_powf(a, b) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_powf__direct() {
+    let (a, b) = (black_box(fx(AX)), black_box(fx(Q)));
+    let e = black_box(fx(0));
+    assert!(ExpTrait::powf(a, b) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_copysign__baseline() {
+    let (_a, _b) = (black_box(fx(Q)), black_box(fx(P)));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_copysign__generic() {
+    let (a, b) = (black_box(fx(Q)), black_box(fx(P)));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_copysign(a, b) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_copysign__direct() {
+    let (a, b) = (black_box(fx(Q)), black_box(fx(P)));
+    let e = black_box(fx(0));
+    assert!(FixedTrait::copysign(a, b) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_ceil__baseline() {
+    let _a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_ceil__generic() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_ceil(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_ceil__direct() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(FixedTrait::ceil(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_round__baseline() {
+    let _a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_round__generic() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_round(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_round__direct() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(FixedTrait::round(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_trunc__baseline() {
+    let _a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_trunc__generic() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_trunc(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_trunc__direct() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(FixedTrait::trunc(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_fract__baseline() {
+    let _a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_fract__generic() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_fract(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_fract__direct() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(FixedTrait::fract(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_powi__baseline() {
+    let _a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_powi__generic() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_powi(a) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_powi__direct() {
+    let a = black_box(fx(P));
+    let e = black_box(fx(0));
+    assert!(FixedTrait::powi(a, 3) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_hypot__baseline() {
+    let (_a, _b) = (black_box(fx(P)), black_box(fx(Q)));
+    let e = black_box(fx(0));
+    assert!(e == e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_hypot__generic() {
+    let (a, b) = (black_box(fx(P)), black_box(fx(Q)));
+    let e = black_box(fx(0));
+    assert!(ScalarOpsTrait::<Fixed>::g_hypot(a, b) != e);
+}
+
+#[test]
+#[inline(never)]
+fn bench_real_hypot__direct() {
+    let (a, b) = (black_box(fx(P)), black_box(fx(Q)));
+    let e = black_box(fx(0));
+    assert!(wide::norm2(a, b) != e);
 }
 
 // --- a divisor shared by n quotients: per-element `Real::div` vs `Real::divisor` + `div_by` ---
