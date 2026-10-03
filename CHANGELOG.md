@@ -2,7 +2,7 @@
 
 Numeric results are part of the API: any change of a result is a MINOR bump (pre-1.0).
 
-## 0.3.0 (unreleased)
+## 0.3.0 (2026-10-03)
 
 ### Changed
 
