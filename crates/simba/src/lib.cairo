@@ -2,7 +2,7 @@
 //!
 //! Rust has one real scalar, `f64`, and `simba` is a trait layer (`RealField`) implemented for
 //! it; nalgebra is generic over `T: RealField`. Here the primitive is the Q32.32 `fixed::Fixed`
-//! (package `fixed` from fixed-cairo, pinned to 0.3.0) and this package is the trait layer
+//! (package `fixed` from fixed-cairo, pinned to 0.5.0) and this package is the trait layer
 //! implemented for it; nalgebra-cairo is generic over `T: Real`. See `docs/DESIGN.md`.
 //!
 //! - `scalar`: the `Real` trait (constants, helpers, fused kernels, the `Acc` accumulator) and
