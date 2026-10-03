@@ -4,13 +4,19 @@ Numeric results are part of the API: any change of a result is a MINOR bump (pre
 
 ## 0.3.0 (unreleased)
 
+### Changed
+
+- **Result change**: `Real::is_sign_positive(0)` now returns `true` (was `false`), following simba-rs
+  (`+0.0` is positive) and fixed's `is_sign_positive`; a result change for callers that branch on it at
+  zero. It forwards to `fixed::FixedTrait::is_sign_positive` (`self >= 0`, there is no negative zero)
+  instead of `is_positive` (`self > 0`).
 - `fixed = "0.5.0"` (was 0.4.0). Breaking under pre-1.0 caret resolution: consumers must pin `fixed`
   0.5 as well. No existing result changes through it: `fixed` 0.5.0 is a pure addition (its
   changelog: "no numeric result of 0.4.0 changes"), and every result of a method simba already
   delegated to is unchanged.
-- **Behaviour change**: `Real::is_sign_positive(0)` is now `true` (it was `false`). It forwards to
-  `fixed::FixedTrait::is_sign_positive` (`self >= 0`, there is no negative zero) instead of
-  `is_positive` (`self > 0`), so zero is positive as `+0.0` is in simba-rs on `f64`.
+
+### Added
+
 - `Transcendental::{sinh_cosh, asinh, acosh, atanh}` (simba-rs `ComplexField` names), delegating to
   `fixed::exp::ExpTrait`. `sinh_cosh` is bit-identical to `(sinh, cosh)` from one shared
   exponential; `asinh` / `acosh` / `atanh` are within 0.68 ulp (`atanh` 0.57), exactly odd
