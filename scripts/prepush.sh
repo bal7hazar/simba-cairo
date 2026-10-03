@@ -30,15 +30,21 @@
 # that runs; it touches the lock only through `flock -w`.
 # The wait starts BEFORE the fixed checks (fmt, self-test) and overlaps them: the waiting process, once it
 # holds the lock, holds it until those checks have passed and then runs the Cairo block; if one of them
-# fails, or the script is interrupted, it signals (SIGTERM) its own waiting process, which stops its own Cairo
-# steps, if any, and releases the lock; it never signals any other process. A busy lock thus costs about 90 s in all, not 90 s plus the checks. If the lock is
-# not obtained in 90 s the whole Cairo block is skipped, with the single line
+# fails, or the script is interrupted, it signals (SIGTERM) the process group of its own waiting process
+# (started with job control, so the group is its own: flock, the inner script and its compile), which stops
+# them together and releases the lock; it signals only that group, never any other process. A busy lock thus
+# costs about 90 s in all, not 90 s plus the checks. If the lock is not obtained in 90 s the whole Cairo block is skipped, with the single line
 # `heavy lock busy: Cairo compile left to CI`, and the push is not blocked (CI runs them).
 # Without the lock (no lock directory or no `flock`, as on the Mac), or when a caller already holds it
 # (HEAVY_BUILD_LOCK_HELD, or an ancestor process with the lock file open: the test of the shims), the Cairo
 # block runs directly, with no wait. The time the lock was waited for and the time the block itself took are
 # printed separately.
 # Exits non-zero on the first failure, with a one-line message naming the step.
+# Needs bash >= 4.4.
+if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4))); then
+    echo "prepush: bash >= 4.4 is required (this is ${BASH_VERSION}); run it with a newer bash" >&2
+    exit 1
+fi
 set -euo pipefail
 # The script's own path, resolved once before any `cd` (it is re-run under flock).
 self=$(realpath "$0" 2> /dev/null || readlink -f "$0")
@@ -51,12 +57,17 @@ start=$SECONDS
 step="start"
 workdir=""
 waiter=""
+# Our own background process group, if still running (a fixed check failed while it waited for the lock, or we
+# were interrupted): SIGTERM to the whole group stops flock, the inner script and its compile together, which
+# releases the lock. The group is the one we started ($waiter is its leader and its id); nothing else is signalled.
+stop_waiter() {
+    if [[ -n "$waiter" ]]; then kill -TERM -- "-$waiter" 2> /dev/null || true; fi
+    return 0
+}
 on_exit() {
     local rc=$?
     if [[ $rc -ne 0 ]]; then echo "prepush: FAILED at step: ${step} ($((SECONDS - start))s)" >&2; fi
-    # Our own background child, if still running (a fixed check failed while it waited for the lock, or we were
-    # interrupted): it stops its own Cairo steps on SIGTERM and so releases the lock. Nothing else is signalled.
-    if [[ -n "$waiter" ]]; then kill -TERM "$waiter" 2> /dev/null || true; fi
+    stop_waiter
     if [[ -n "$workdir" ]]; then rm -rf "$workdir"; fi
 }
 trap on_exit EXIT
@@ -97,18 +108,24 @@ if [[ "${PREPUSH_INNER:-}" == 1 ]]; then
     done
     export HEAVY_BUILD_LOCK_HELD=1 # the lock really is held here: the shims run nested, without re-locking
     echo "prepush: heavy lock obtained after $((got - PREPUSH_T0))s of waiting (the fixed checks ran meanwhile)"
-    # The block runs as our child so that a signal (the caller was interrupted: it forwards SIGTERM to us) is
-    # handled at once, and the caller's death is noticed: either way the block's own descendants (and only
-    # those) are stopped, which releases the lock. Background jobs of a script ignore SIGINT, hence SIGTERM.
-    kill_tree() { local c; for c in $(pgrep -P "$1" 2> /dev/null); do kill_tree "$c"; done; kill -TERM "$1" 2> /dev/null || true; }
+    # We lead the process group that the caller started for us (flock, which exec'd this script, and the block
+    # below are all in it). The caller stops it with SIGTERM to the group, which reaches the block and its
+    # compile as well; when the caller dies without being able to (SIGKILL), we notice it and signal the group
+    # ourselves, only when it really is ours (we lead it). Either way the lock is released.
+    stop_group() {
+        local pg
+        trap - TERM INT HUP
+        pg=$(ps -o pgid= -p $$ 2> /dev/null | tr -d ' ') || pg=""
+        if [[ "$pg" == "$$" ]]; then kill -TERM -- "-$$" 2> /dev/null || true; fi
+        exit 143
+    }
     { trap on_exit EXIT; cairo_block; } &
     block=$!
-    trap 'kill_tree "$block"; trap - EXIT; echo "prepush: interrupted, Cairo block stopped, lock released" >&2; exit 143' TERM INT HUP
+    trap 'trap - EXIT; echo "prepush: interrupted, Cairo block stopped, lock released" >&2; stop_group' TERM INT HUP
     while kill -0 "$block" 2> /dev/null; do
         if ! kill -0 "$PREPUSH_PARENT" 2> /dev/null; then
-            kill_tree "$block"
             trap - EXIT
-            exit 143
+            stop_group
         fi
         sleep 0.3
     done
@@ -179,9 +196,12 @@ if [[ "$mode" == flock ]]; then
     # PREPUSH_DIR/held appears only once the lock is held: a failed step is told apart from a lock that was
     # not obtained (flock exit 75 after the 90 s) and from any other flock error. The waiting process writes
     # to a file, not to our terminal or pipes, so that one left behind by an early failure holds none of them.
+    # Job control (set -m) puts the background job in its own process group, whose id is $waiter.
+    set -m
     PREPUSH_INNER=1 PREPUSH_DIR="$workdir" PREPUSH_PARENT=$$ PREPUSH_T0=$(date +%s) \
         flock -E 75 -w 90 "$lock" "$self" "$base" > "$workdir/out" 2>&1 < /dev/null &
     waiter=$!
+    set +m
 fi
 
 if [[ "$DO_FMT" == 1 ]]; then run "scarb fmt --check" scarb fmt --check; else echo "prepush: scarb fmt --check skipped (no .cairo file or toolchain input changed against $base)"; fi
@@ -200,6 +220,7 @@ case "$mode" in
         relay_until_exit "$waiter" "$workdir/out"
         rc=0
         wait "$waiter" || rc=$?
+        waiter="" # reaped: the EXIT trap must not signal its (possibly reused) id
         if [[ -e "$workdir/held" ]]; then
             [[ $rc -eq 0 ]] || exit 1 # a step failed inside the lock; it printed its own message
         elif [[ $rc -eq 75 ]]; then
