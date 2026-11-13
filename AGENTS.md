@@ -32,4 +32,7 @@ step is proven, so gas is a first-class requirement, on par with correctness.
 
 Before every push, `./scripts/prepush.sh` passes (the `.githooks/pre-push` hook runs it): never push red,
 never skip the hook (`--no-verify`). Enable the hook in a fresh clone with
-`git config core.hooksPath .githooks`.
+`git config core.hooksPath .githooks`. Where the heavy-build lock exists, the hook's Cairo compile runs
+inside the lock under `nice -n 10 prlimit --as=8589934592` (8 GiB); if the cap kills it the hook prints
+`memory cap reached: Cairo compile left to CI` and lets the push pass. Override the cap (bytes) with
+`PREPUSH_MEM_CAP`, e.g. `PREPUSH_MEM_CAP=100000000 scripts/prepush.sh` to force it.

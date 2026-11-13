@@ -39,6 +39,14 @@
 # (HEAVY_BUILD_LOCK_HELD, or an ancestor process with the lock file open: the test of the shims), the Cairo
 # block runs directly, with no wait. The time the lock was waited for and the time the block itself took are
 # printed separately.
+# The memory cap. Wherever the heavy-build lock exists (its directory exists and `flock` is installed: the shared
+# VPS), every scarb and snforge command of the Cairo block runs under `nice -n 10 prlimit --as=8589934592 -- ...`
+# (8 GiB of address space), inside the lock, so Cairo builds are niced and run one at a time. Nothing else (no
+# node) runs under `--as`. $PREPUSH_MEM_CAP overrides the figure in bytes (for testing: 100000000 forces the cap).
+# If the cap kills a step (exit 134/137, or an allocation failure in its output), the block stops at once, prints
+# the single line `memory cap reached: Cairo compile left to CI`, and the push is not blocked (CI runs the compile,
+# as for a busy lock). Any other failure (a Cairo error, a failing test, a gas mismatch) still fails the push.
+# Where there is no lock (the Mac) the block runs niced but uncapped.
 # Exits non-zero on the first failure, with a one-line message naming the step.
 # Needs bash >= 4.4.
 if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4))); then
@@ -77,23 +85,78 @@ trap 'exit 143' TERM HUP
 
 run() { step="$1"; shift; local t=$SECONDS; echo "prepush: $step"; "$@"; echo "prepush: $step: $((SECONDS - t))s"; }
 
+cap_prefix=(nice -n 10)
+cap_on=0
+set_cap() {
+    local cap="${PREPUSH_MEM_CAP:-8589934592}"
+    [[ "$cap" =~ ^[0-9]+$ ]] || { echo "prepush: PREPUSH_MEM_CAP must be a number of bytes (got '$cap')" >&2; exit 1; }
+    local l="${HEAVY_BUILD_LOCK:-$HOME/orchestrator/heavy-build.lock}"
+    if command -v flock > /dev/null && [[ -d "$(dirname "$l")" ]]; then
+        command -v prlimit > /dev/null || { echo "prepush: prlimit (util-linux) not found: refusing to compile uncapped" >&2; exit 1; }
+        cap_prefix=(nice -n 10 prlimit "--as=$cap" --)
+        cap_on=1
+    fi
+}
+
+# Did the cap kill this step? $1 is the exit status, the rest are the files holding its output.
+cap_killed() {
+    local rc=$1
+    shift
+    ((rc == 134 || rc == 137)) && return 0
+    grep -Eqi 'memory allocation of [0-9]+ bytes failed|Cannot allocate memory|failed to reserve .*memory|runtime: out of memory|std::bad_alloc' "$@"
+}
+
+cap_reached() {
+    echo "memory cap reached: Cairo compile left to CI"
+    rm -rf "$cairo_tmp"
+    if [[ "${PREPUSH_INNER:-}" == 1 ]]; then
+        trap - EXIT
+        exit 0
+    fi
+    echo "prepush: ok in $((SECONDS - start))s"
+    exit 0
+}
+
+# cairo_cmd OUTFILE CMD...: run under the prefix, stdout to OUTFILE, stderr passed on; ends the block when the cap killed it.
+cairo_cmd() {
+    local out=$1 rc=0 err="$1.err"
+    shift
+    ( "${cap_prefix[@]}" "$@"; exit $? ) > "$out" 2> "$err" || rc=$?
+    if ((rc != 0 && cap_on == 1)) && cap_killed "$rc" "$out" "$err"; then cap_reached; fi
+    cat "$err" >&2
+    return "$rc"
+}
+
+# cairo_show CMD...: cairo_cmd, then print the stdout.
+cairo_show() {
+    local rc=0 out
+    out=$(mktemp "$cairo_tmp/out.XXXXXX")
+    cairo_cmd "$out" "$@" || rc=$?
+    cat "$out"
+    return "$rc"
+}
+
 # The Cairo block: run inside the lock (inner mode, re-executed by flock) or directly.
 cairo_block() {
     local t=$SECONDS
+    set_cap
+    cairo_tmp=$(mktemp -d)
     if [[ "$PREPUSH_DO_BUILD" == 1 ]]; then
-        run "scarb lint --deny-warnings" scarb lint --deny-warnings
-        run "scarb build" scarb build
+        run "scarb lint --deny-warnings" cairo_show scarb lint --deny-warnings
+        run "scarb build" cairo_show scarb build
     fi
     if [[ "$PREPUSH_DO_GAS" == 1 ]]; then
         local t2=$SECONDS output
         step="snforge test --workspace"
         echo "prepush: $step, then the gas snapshot check"
-        output=$(snforge test --workspace) || { echo "$output"; exit 1; }
+        cairo_cmd "$cairo_tmp/snforge.out" snforge test --workspace || { cat "$cairo_tmp/snforge.out"; exit 1; }
+        output=$(< "$cairo_tmp/snforge.out")
         echo "$output" | tail -n 1
         echo "prepush: $step: $((SECONDS - t2))s"
         step="gas_report.py --check gas/"
         echo "$output" | python3 scripts/gas_report.py --check gas/
     fi
+    rm -rf "$cairo_tmp"
     echo "prepush: Cairo block: $((SECONDS - t))s of work"
 }
 
