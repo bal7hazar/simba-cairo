@@ -43,7 +43,7 @@
 # VPS), every scarb and snforge command of the Cairo block runs under `nice -n 10 prlimit --as=8589934592 -- ...`
 # (8 GiB of address space), inside the lock, so Cairo builds are niced and run one at a time. Nothing else (no
 # node) runs under `--as`. $PREPUSH_MEM_CAP overrides the figure in bytes (for testing: 100000000 forces the cap).
-# If the cap kills a step (exit 134/137, or an allocation failure in its output), the block stops at once, prints
+# If the cap kills a step (exit 134/137, or the Go runtime's fatal line as the first line of stderr with exit 2; see cap_killed), the block stops at once, prints
 # the single line `memory cap reached: Cairo compile left to CI`, and the push is not blocked (CI runs the compile,
 # as for a busy lock). Any other failure (a Cairo error, a failing test, a gas mismatch) still fails the push.
 # Where there is no lock (the Mac) the block runs niced but uncapped.
@@ -98,12 +98,13 @@ set_cap() {
     fi
 }
 
-# Did the cap kill this step? $1 is the exit status, the rest are the files holding its output.
+# Did the cap kill this step? $1 is its exit status, $2 the file of its stderr. Either SIGABRT (134: Rust aborts on a
+# failed allocation) or SIGKILL (137), or the Go runtime's own death (exit 2) whose stderr STARTS with its fatal
+# line. Matching is anchored at the start of a line of stderr and needs that exit status: diagnostics quote source
+# text, with a gutter before it, and a compile error never exits 2, 134 or 137, so a phrase in the code is never taken.
 cap_killed() {
-    local rc=$1
-    shift
-    ((rc == 134 || rc == 137)) && return 0
-    grep -Eqi 'memory allocation of [0-9]+ bytes failed|Cannot allocate memory|failed to reserve .*memory|runtime: out of memory|std::bad_alloc' "$@"
+    (($1 == 134 || $1 == 137)) && return 0
+    (($1 == 2)) && head -n 1 "$2" | grep -Eq '^fatal error: (failed to reserve .*memory|runtime: out of memory)'
 }
 
 cap_reached() {
@@ -122,7 +123,7 @@ cairo_cmd() {
     local out=$1 rc=0 err="$1.err"
     shift
     ( "${cap_prefix[@]}" "$@"; exit $? ) > "$out" 2> "$err" || rc=$?
-    if ((rc != 0 && cap_on == 1)) && cap_killed "$rc" "$out" "$err"; then cap_reached; fi
+    if ((rc != 0 && cap_on == 1)) && cap_killed "$rc" "$err"; then cap_reached; fi
     cat "$err" >&2
     return "$rc"
 }
