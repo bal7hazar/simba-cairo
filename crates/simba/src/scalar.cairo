@@ -281,7 +281,8 @@ pub trait Transcendental<T> {
     fn exp2(self: T) -> T;
     /// `e^self - 1`. Panics on overflow. Upstream: `ComplexField::exp_m1`.
     fn exp_m1(self: T) -> T;
-    /// `ln(1 + self)`. Panics when `self <= -1`. Upstream: `ComplexField::ln_1p`.
+    /// `ln(1 + self)`. Panics when `self <= -1` (so at `MIN`), and when `self + 1` does not fit
+    /// the scalar range, i.e. for `self > MAX - 1` (so at `MAX`). Upstream: `ComplexField::ln_1p`.
     fn ln_1p(self: T) -> T;
     /// Logarithm of `self` in base `base`. Panics on a non-positive `self` or `base`, and when
     /// `base` is 1. Upstream: `ComplexField::log`.
@@ -291,7 +292,9 @@ pub trait Transcendental<T> {
     /// Base-10 logarithm. Panics on a non-positive input. Upstream: `ComplexField::log10`.
     fn log10(self: T) -> T;
     /// `self^n`. Panics on overflow, on `0^n` with `n < 0` and on a negative `self` with a
-    /// non-integer `n`. Upstream: `ComplexField::powf`.
+    /// non-integer `n`. Also panics when `self` is `MIN` and `n` is an integer, because the
+    /// magnitude of `MIN` does not fit; at `MAX` it panics on overflow for any `n > 1`.
+    /// Upstream: `ComplexField::powf`.
     fn powf(self: T, n: T) -> T;
     /// Hyperbolic sine (simba-rs `ComplexField::sinh`).
     fn sinh(self: T) -> T;
